@@ -79,13 +79,10 @@ unless(system("$cmd") == 0) {    print("$cmd\n");    throw("error running sga ov
 
 # sga walk
 my $outdir = $path;
-$cmd = "$sga_executable walk --component-walks -o $outdir/$tag.walks.fa --description-file=$outdir/$tag.walks.desc $tag.asqg.gz";
+$cmd = "$sga_executable walk --component-walks -o $outdir/$tag.walks --description-file=$outdir/$tag.wdesc $tag.asqg.gz";
 print STDERR "$cmd\n" if ($debug);
 $rerun_string .= "$cmd\n";
 unless(system("$cmd") == 0) {    print("$cmd\n");    throw("error running sga walk: $!\n");  }
-
-$DB::single=1;1;#??
-
 
 print STDERR "###\n" if ($debug);
 print STDERR $rerun_string if ($debug);
