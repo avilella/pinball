@@ -7,7 +7,7 @@ Pinball::Template
 
 =head1 SYNOPSIS
 
-Template does something.
+The Template module does something.
 
 =head1 DESCRIPTION
 
