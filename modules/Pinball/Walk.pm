@@ -115,8 +115,8 @@ sub run {
     $DB::single=1;1;
     # sga walk
     my $outdir = $path;
-    my $walksfile = $outdir . "$tag.walks";
-    my $wdescfile = $outdir . "$tag.wdesc";
+    my $walksfile = $outdir . "$cluster_id.walks";
+    my $wdescfile = $outdir . "$cluster_id.wdesc";
     $cmd = "$sga_executable walk --prefix=$cluster_id --component-walks -o $walksfile --description-file=$wdescfile $tag.asqg.gz";
     print STDERR "$cmd\n" if ($self->debug);
     unless(system("$cmd") == 0) {    print("$cmd\n");    $self->throw("error running sga walk $!\n");  }
@@ -154,8 +154,7 @@ sub write_output {  # nothing to write out, but some dataflow to perform:
     print "Created $work_dir ", scalar @output_ids, "\n" if ($self->debug);
     $self->param('output_ids', \@output_ids);
     my $output_ids = $self->param('output_ids');
-
-    $self->dataflow_output_id($output_ids, 2);
+    $self->dataflow_output_id($output_ids, 1);
 
     $self->warning(scalar(@$output_ids).' jobs have been created');     # warning messages get recorded into 'job_message' table
 
