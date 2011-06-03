@@ -55,7 +55,7 @@ sub run {
     my $phred64        = $self->param('phred64');
     my $no_permute     = $self->param('no_permute');
     my $disk           = $self->param('disk');
-    my $threads        = $self->param('cluster_threads');
+    my $threads        = $self->param('cluster_threads') || 1;
     my $overlap        = $self->param('overlap');
     my $csize          = $self->param('csize');
     my $erate          = $self->param('erate');
