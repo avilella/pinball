@@ -49,7 +49,7 @@ my $cmd;
 # blastn
 $cmd = "$blast_exe -query $tempfile -db $reference -outfmt 7 | grep -v '^#' > $inputfile.$tag.blastn";
 print STDERR "$cmd\n" if ($debug);
-unless(system("$cmd") == 0) {    print("$cmd\n");    die("error running blastn $!\n");  }
+if(system("$cmd") != 0 && system("$cmd") != 256) {    print("$cmd\n");    die("error running blastn $!\n");  }
 
 $DB::single=1;1;
 

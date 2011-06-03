@@ -55,34 +55,34 @@ $permute_ambiguous = "--permute-ambiguous" unless ($no_permute);
 $cmd = "$sga_executable preprocess $sample_threshold --min-length=$minreadlen $dust_threshold $permute_ambiguous $readsfile -o $tag.fq 2>$tag.preprocess.txt";
 print STDERR "$cmd\n" if ($debug);
 $rerun_string .= "$cmd\n";
-unless(system("$cmd") == 0) {    print("$cmd\n");    throw("error running sga preprocess: $!\n");  }
+unless(system("$cmd") == 0) {    print("$cmd\n");    die("error running sga preprocess: $!\n");  }
 
 # sga index
 # this will take about 500MB of memory
 $cmd = "$sga_executable index -t $threads --disk=$disk $tag.fq";
 print STDERR "$cmd\n" if ($debug);
 $rerun_string .= "$cmd\n";
-unless(system("$cmd") == 0) {    print("$cmd\n");    throw("error running sga index: $!\n");  }
+unless(system("$cmd") == 0) {    print("$cmd\n");    die("error running sga index: $!\n");  }
 exit 0 if ($onlyindex);
 
 # sga rmdup
 $cmd = "$sga_executable rmdup -e $erate -t $threads $tag.fq";
 print STDERR "$cmd\n" if ($debug);
 $rerun_string .= "$cmd\n";
-unless(system("$cmd") == 0) {    print("$cmd\n");    throw("error running sga rmdup: $!\n");  }
+unless(system("$cmd") == 0) {    print("$cmd\n");    die("error running sga rmdup: $!\n");  }
 
 # sga overlap
 $cmd = "$sga_executable overlap -m $overlap -t $threads $exhaustive -e $erate $tag.rmdup.fa -o $tag.asqg.gz";
 print STDERR "$cmd\n" if ($debug);
 $rerun_string .= "$cmd\n";
-unless(system("$cmd") == 0) {    print("$cmd\n");    throw("error running sga overlap: $!\n");  }
+unless(system("$cmd") == 0) {    print("$cmd\n");    die("error running sga overlap: $!\n");  }
 
 # sga walk
 my $outdir = $path;
 $cmd = "$sga_executable walk --component-walks -o $outdir/$tag.walks --description-file=$outdir/$tag.wdesc $tag.asqg.gz";
 print STDERR "$cmd\n" if ($debug);
 $rerun_string .= "$cmd\n";
-unless(system("$cmd") == 0) {    print("$cmd\n");    throw("error running sga walk: $!\n");  }
+unless(system("$cmd") == 0) {    print("$cmd\n");    die("error running sga walk: $!\n");  }
 
 print STDERR "###\n" if ($debug);
 print STDERR $rerun_string if ($debug);
@@ -108,7 +108,7 @@ sub worker_process_temp_directory {
     #create temp directory to hold fasta databases
     $self->{'_tmp_dir'} = "/tmp/worker.$$/";
     mkdir($self->{'_tmp_dir'}, 0777);
-    throw("unable to create ".$self->{'_tmp_dir'}) unless(-e $self->{'_tmp_dir'});
+    die("unable to create ".$self->{'_tmp_dir'}) unless(-e $self->{'_tmp_dir'});
   }
   if ($docwd) {
     use Cwd;

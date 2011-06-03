@@ -1,0 +1,158 @@
+
+=pod 
+
+=head1 NAME
+
+Pinball::Walk
+
+=head1 SYNOPSIS
+
+Walk reconstructs the possible walks in a cluster graph and lists the read order for each walk.
+
+=head1 DESCRIPTION
+
+'Pinball::Walk' is the second step of the Pinball pipeline.
+
+=cut
+
+package Pinball::Walk;
+
+use strict;
+use File::Basename;
+use Cwd;
+use Time::HiRes qw(time gettimeofday tv_interval);
+
+use base ('Bio::EnsEMBL::Hive::Process');
+
+=head2 fetch_input
+
+    Description : Implements fetch_input()
+
+=cut
+
+sub fetch_input {
+    my $self = shift @_;
+
+    $self->{starttime} = time();
+    print STDERR "[init] ",time()-$self->{starttime}," secs...\n" if ($self->debug);
+
+    my $input_id       = $self->input_id;
+    $DB::single=1;1;
+#    $self->{param1} = $self->param('param1')  || die "'param1' is an obligatory parameter";
+
+}
+
+=head2 run
+
+    Description : Implements run().
+
+=cut
+
+sub run {
+    my $self = shift @_;
+
+    my $param1         = $self->param('param1');
+    my $param2         = $self->param('param2');
+    my $sga_executable = $self->param('sga_executable');
+
+    my $input_id       = $self->input_id;
+
+    my $cmd;
+    # sga something
+    my $outfile = $input_id . ".something";
+    $cmd = "$sga_executable something something > $outfile";
+    print STDERR "$cmd\n" if ($self->debug);
+
+    unless(system("$cmd") == 0) {    print("$cmd\n");    $self->throw("error running sga something $!\n");  }
+
+    if (-e $outfile && !-z $outfile) {
+      print STDERR "$outfile\n" if ($self->debug);
+      $self->param('somethingfile', $outfile);
+    } else {
+      $self->throw("error running sga cluster\n $cmd\n #$outfile\n $!\n");
+    }
+}
+
+=head2 write_output
+
+    Description : Implements write_output()
+
+=cut
+
+sub write_output {  # nothing to write out, but some dataflow to perform:
+    my $self = shift @_;
+
+    my $minclustersize = $self->param('minclustersize');
+    my $maxclustersize = $self->param('maxclustersize');
+    my $work_dir = $self->param('work_dir');
+
+    # Num of clusters per hashed dir
+    $self->{sizedir} = 200;
+
+    my $clustersfile = $self->param('clustersfile');
+    my $last_cluster_id = 'none';
+    my @seq_list;
+    my @output_files;
+    my $readsnum;
+    open FILE,$clustersfile or die $!;
+    while (<FILE>) {
+      my $diff = time()-$self->{starttime};
+      chomp $_;
+      my ($cluster_id,$cluster_size,$read_name,$read_sequence) = split("\t",$_);
+      $cluster_id =~ s/\:/\./g;
+      if ($cluster_id ne $last_cluster_id) {
+        $last_cluster_id = $cluster_id;
+        if (defined @seq_list) {
+          if (scalar @seq_list < $maxclustersize && $minclustersize < scalar @seq_list) {
+            $DB::single=$self->debug;1;
+            my $outfile = $self->create_outdir($cluster_id, $work_dir);
+            open OUT, ">$outfile" or die $!; print OUT join('',@seq_list); close OUT;
+            print STDERR "[ $readsnum - $cluster_id - $outfile - $diff secs...]\n" if ($self->debug);
+            push @output_files, $outfile;
+          }
+        }
+        @seq_list = undef;
+      }
+      push @seq_list, ">$read_name\n$read_sequence\n";
+      $readsnum++;
+    }
+    close FILE;
+    print "Created $work_dir ", $self->{final_dir}, "\n" if ($self->debug);
+
+    $self->param('output_ids', \@output_files);
+    my $output_ids = $self->param('output_ids');
+
+    $self->dataflow_output_id($output_ids, 2);
+
+    $self->warning(scalar(@$output_ids).' jobs have been created');     # warning messages get recorded into 'job_message' table
+
+    ## then flow into the branch#1 funnel; input_id would flow into branch#1 by default anyway, but we request it here explicitly:
+    # $self->dataflow_output_id($self->input_id, 1);
+}
+
+sub create_outdir {
+  my $self = shift;
+  my $cluster_id = shift;
+  my $work_dir   = shift;
+
+  my $outddir;
+  if ($self->{this_sizedir} >= $self->{sizedir}) {
+    $self->{this_sizedir} = 0;
+    $self->{filenum}++;
+  }
+  $self->{filenum} = sprintf("%06d", $self->{filenum});
+  $self->{filenum} =~ /(\d{2})(\d{2})(\d{2})/; #
+  my $dir1 = $1; my $dir2 = $2; my $dir3 = $3;
+  my $outdir = $work_dir . "/$dir1/$dir2/$dir3";
+  $self->{final_dir} = "$dir1:$dir2:$dir3";
+  $outdir =~ s/\/\//\//g;
+  unless (-d $outdir) {
+    system("mkdir -p $outdir");
+  }
+  $self->{this_sizedir}++;
+  my $outfile = $outdir . "/" . $cluster_id . ".fa";
+  return $outfile;
+}
+
+1;
+

@@ -5,17 +5,19 @@ use File::Basename;
 use Time::HiRes qw(time gettimeofday tv_interval);
 
 my $self = bless {};
-my ($inputfile,$debug,$sizelimit,$outdir);
+my ($inputfile,$debug,$maxsize,$minsize,$outdir);
 my $debug = 0;
 $self->{outdir} = ".";
 $self->{sizedir} = 10;
 my $tmpdir = '/tmp';
-$sizelimit = 100000;
+$maxsize = 100000;
+$minsize = 5;
 $self->{hashfile} = "hashlist";
 GetOptions(
 	   'i|input|inputfile:s' => \$inputfile,
            'tmpdir:s'  => \$tmpdir,
-	   'sizelimit:s' => \$sizelimit,
+	   'maxsize:s' => \$maxsize,
+	   'minsize:s' => \$minsize,
 	   's|sizedir:s' => \$self->{sizedir},
            'd|debug:s' => \$debug,
 	   'o|outdir:s' => \$self->{outdir},
@@ -24,7 +26,6 @@ GetOptions(
 my $starttime = time();
 print STDERR "[init] ",time()-$starttime," secs...\n" if ($debug); $starttime = time();
 
-my $cmd = '';
 open FILE, $inputfile or die $!;
 my $hf = $self->{hashfile};
 open HASHFILE, ">$hf" or die $!;
@@ -41,7 +42,7 @@ while (<FILE>) {
   if ($cluster_id ne $last_cluster_id) {
     $last_cluster_id = $cluster_id;
     if (defined @seq_list) {
-      if (scalar @seq_list < $sizelimit) {
+      if (scalar @seq_list < $maxsize && $minsize < scalar @seq_list) {
         $DB::single=$debug;1;
         my $outfile = $self->create_outdir($cluster_id);
         open OUT, ">$outfile" or die $!; print OUT join('',@seq_list); close OUT;
