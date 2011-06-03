@@ -51,23 +51,24 @@ sub default_options {
 
     return {
         'ensembl_cvs_root_dir' => $ENV{'ENSEMBL_CVS_ROOT_DIR'},
-        'pipeline_name' => 'pinball',
-        'disk'           => 1000000,
-        'cluster_threads'=> 1,
-        'overlap'        => 31,
-        'csize'          => 50,
-        'erate'          => 0,
-        'minreadlen'     => 34,
-        'dust'           => 1,
-        'sga_executable' => $ENV{'HOME'}.'/pinball/sga/src/sga',
-        'work_dir'       => $ENV{'HOME'}.'/pinball_workdir',
-        'phred64'        => 0,
-        'tag'            => '',
-        'no_permute'     => '',
-        'sample'         => '',
-        'minclustersize' => 10,
-        'maxclustersize' => 100000,
-        'email'          => 'avilella@gmail.com',
+        'pipeline_name'        => 'pinball',
+        'disk'                 => 1000000,
+        'cluster_threads'      => 1,
+        'overlap'              => 31,
+        'csize'                => 50,
+        'erate'                => 0,
+        'minreadlen'           => 34,
+        'dust'                 => 1,
+        'sga_executable'       => $ENV{'HOME'}.'/pinball/sga/src/sga',
+        'work_dir'             => $ENV{'HOME'}.'/pinball_workdir',
+        'phred64'              => 0,
+        'tag'                  => '',
+        'no_permute'           => '',
+        'sample'               => '',
+        'minclustersize'       => 10,
+        'maxclustersize'       => 100000,
+        'cpunum'               => 4,
+        'email'                => 'avilella@gmail.com',
 
         'pipeline_db' => {
             -host   => 'mysql-pinball',
@@ -97,6 +98,7 @@ sub pipeline_wide_parameters {  # these parameter values are visible to all anal
             'minclustersize' => $self->o('minclustersize'),
             'maxclustersize' => $self->o('maxclustersize'),
             'email'          => $self->o('email'),
+            'cpunum'         => $self->o('cpunum'),
     };
 }
 
@@ -120,7 +122,8 @@ sub resource_classes {
     my ($self) = @_;
     return {
          0 => { -desc => 'default',          'LSF' => '' },
-         1 => { -desc => 'cluster_req',      'LSF' => '-C0 -M'.$self->o('cluster_gigs').'000 -n '.$self->o('cluster_threads').' -q '.$self->o('cluster_queue').' -R"select[ncpus>='.$self->o('cluster_threads').' && mem>'.$self->o('cluster_gigs').'000] rusage[mem='.$self->o('cluster_gigs').'000] span[hosts=1]"' },
+         # 1 => { -desc => 'cluster_req',      'LSF' => ' -M'.$self->o('cluster_gigs').'000 -n '.$self->o('cluster_threads').' -q '.$self->o('cluster_queue').' -R "select[ncpus>='.$self->o('cluster_threads').' && mem>'.$self->o('cluster_gigs').'000] rusage[mem='.$self->o('cluster_gigs').'000] span[hosts=1]"' },
+         1 => { -desc => 'cluster_req',      'LSF' => ' -M'.$self->o('cluster_gigs').'000 -n '.$self->o('cluster_threads').' -q '.$self->o('cluster_queue').' -R "rusage[mem='.$self->o('cluster_gigs').'000] span[hosts=1]"' },
 #        2 => { -desc => 'db_example',      'LSF' => '-R"select['.$self->o('dbresource').'<'.$self->o('dbserver_capacity').'] rusage['.$self->o('dbresource').'=10:duration=10:decay=1]"' },
     };
 }
@@ -144,36 +147,46 @@ sub resource_classes {
 sub pipeline_analyses {
     my ($self) = @_;
     return [
+
         {   -logic_name => 'cluster',
             -module     => 'Pinball::Cluster',
             -parameters => { 
-                            'readsfile'      => $self->o('readsfile'),
+                            'readsfile'       => $self->o('readsfile'),
                             'cluster_threads' => $self->o('cluster_threads'),
                            },
             -input_ids  => [ {} ],    # only this job is needed at the beginning
             -flow_into => {
                 2 => [ 'walk' ],      # will create a fan of jobs
-                1 => [ 'report'  ],   # will create a funnel job to wait for the fan to complete and add the results
+                1 => [ 'report' ],    # will create a funnel job to wait for the fan to complete and add the results
             },
             -rc_id => 1,
         },
+
         {   -logic_name => 'walk',
             -module     => 'Pinball::Walk',
             -parameters => {},
             -flow_into => {
-                1 => [ 'blast'  ],
+                1 => [ 'search'  ],
             },
+            -hive_capacity => $self->o('cpunum'),
+            -failed_job_tolerance => 2,
             # input_id comes from cluster
         },
-        {   -logic_name => 'blast',
-            -module     => 'Pinball::Blast',
-            -parameters => { 'readsfile' => $self->o('readsfile') },
+
+        {   -logic_name => 'search',
+            -module     => 'Pinball::Search',
+            -hive_capacity => $self->o('cpunum'),
+            -failed_job_tolerance => 2,
+            #            -parameters => { 'readsfile' => $self->o('readsfile') },
         },
+
         {   -logic_name => 'report',
             -module     => 'Pinball::Report',
+            -hive_capacity => $self->o('cpunum'),
             -parameters => {},
-            -wait_for => [ 'walk', 'blast' ],   # comes from the first analysis
+            -wait_for => [ 'walk', 'search' ],   # comes from the first analysis
         },
+
     ];
 }
 
