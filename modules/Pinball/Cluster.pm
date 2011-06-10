@@ -84,12 +84,21 @@ sub run {
     }
     chdir($work_dir);
 
+    my @readfiles = split(':',$readsfile);
     # sga preprocess
-    my $preprocess_log = $work_dir . "/$tag.sga.preprocess.log";
-    $cmd = "$sga_executable preprocess $sample_threshold $phred64_flag --min-length=$minreadlen $dust_threshold $permute_ambiguous $readsfile -o $tag.fq 2>$preprocess_log";
-    print STDERR "$cmd\n" if ($self->debug);
-
-    unless(system("$cmd") == 0) {    print("$cmd\n");    $self->throw("error running sga preprocess $!\n");  }
+    my $count = 0; my $outpipe = '1>'; my $errpipe = '2>';
+    foreach my $file (@readfiles) {
+      my $preprocess_log = $work_dir . "/$tag.sga.preprocess.log";
+      $cmd = "$sga_executable preprocess $sample_threshold $phred64_flag --min-length=$minreadlen $dust_threshold $permute_ambiguous $file $outpipe $tag.fq $errpipe $preprocess_log";
+      print STDERR "$cmd\n" if ($self->debug);
+      unless(system("$cmd") == 0) {    print("$cmd\n");    $self->throw("error running sga preprocess $!\n");  } else {
+        print STDERR "[Preprocessed $file] ",time()-$self->{starttime}," secs...\n" if ($self->debug);
+        $count++;
+      }
+      if ($count>0) {
+        $outpipe = '1>>'; $errpipe = '2>>';
+      }
+    }
 
     # sga index
     # this will take about 500MB of memory
