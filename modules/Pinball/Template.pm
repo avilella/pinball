@@ -53,21 +53,19 @@ sub run {
     my $param2         = $self->param('param2');
     my $sga_executable = $self->param('sga_executable');
 
-    my $input_id       = $self->input_id;
-
     my $cmd;
     # sga something
-    my $outfile = $input_id . ".something";
-    $cmd = "$sga_executable something something > $outfile";
+    # my $outfile = $input_id . ".something";
+    # $cmd = "$sga_executable something something > $outfile";
     print STDERR "$cmd\n" if ($self->debug);
 
-    unless(system("$cmd") == 0) {    print("$cmd\n");    $self->throw("error running sga something $!\n");  }
+    unless(system("$cmd") == 0) {    print("$cmd\n");    $self->throw("error running pinball template $!\n");  }
 
     if (-e $outfile && !-z $outfile) {
       print STDERR "$outfile\n" if ($self->debug);
       $self->param('outfile', $outfile);
     } else {
-      $self->throw("error running sga cluster\n $cmd\n #$outfile\n $!\n");
+      $self->throw("error running pinball template\n $cmd\n #$outfile\n $!\n");
     }
 }
 
