@@ -60,6 +60,8 @@ sub default_options {
         'minreadlen'           => 34,
         'dust'                 => 1,
         'sga_executable'       => $ENV{'HOME'}.'/pinball/sga/src/sga',
+        'search_executable'    => $ENV{'HOME'}.'/pinball/third-party/ncbi-blast/bin/blastn',
+        'reference'            => '/nfs/nobackup/ensembl/avilella/refs/Homo_sapiens.fa',
         'work_dir'             => $ENV{'HOME'}.'/pinball_workdir',
         'phred64'              => 0,
         'tag'                  => '',
@@ -70,13 +72,13 @@ sub default_options {
         'cpunum'               => 4,
         'email'                => 'avilella@gmail.com',
 
-        'pipeline_db' => {
-            -host   => 'mysql-pinball',
-            -port   => 4307,
-            -user   => 'admin',
-            -pass   => $self->o('password'),
-            -dbname => $ENV{USER}.'_'.$self->o('pipeline_name'),
-        },
+        # 'pipeline_db' => {
+        #     -host   => 'mysql-pinball',
+        #     -port   => 4307,
+        #     -user   => $ENV{USER},
+        #     -pass   => $self->o('password'),
+        #     -dbname => $ENV{USER}.'_'.$self->o('pipeline_name'),
+        # },
     };
 }
 
@@ -84,21 +86,25 @@ sub pipeline_wide_parameters {  # these parameter values are visible to all anal
     my ($self) = @_;
     return {
         %{$self->SUPER::pipeline_wide_parameters},          # here we inherit anything from the base class
-            'work_dir'       => $self->o('work_dir'),
-            'overlap'        => $self->o('overlap'),
-            'csize'          => $self->o('csize'),
-            'erate'          => $self->o('erate'),
-            'minreadlen'     => $self->o('minreadlen'),
-            'dust'           => $self->o('dust'),
-            'sga_executable' => $self->o('sga_executable'),
-            'phred64'        => $self->o('phred64'),
-            'tag'            => $self->o('tag'),
-            'no_permute'     => $self->o('no_permute'),
-            'sample'         => $self->o('sample'),
-            'minclustersize' => $self->o('minclustersize'),
-            'maxclustersize' => $self->o('maxclustersize'),
-            'email'          => $self->o('email'),
-            'cpunum'         => $self->o('cpunum'),
+
+            'work_dir'          => $self->o('work_dir'),
+            'overlap'           => $self->o('overlap'),
+            'csize'             => $self->o('csize'),
+            'erate'             => $self->o('erate'),
+            'minreadlen'        => $self->o('minreadlen'),
+            'dust'              => $self->o('dust'),
+            'sga_executable'    => $self->o('sga_executable'),
+            'search_executable' => $self->o('search_executable'),
+            'reference'         => $self->o('reference'),
+            'phred64'           => $self->o('phred64'),
+            'tag'               => $self->o('tag'),
+            'no_permute'        => $self->o('no_permute'),
+            'sample'            => $self->o('sample'),
+            'minclustersize'    => $self->o('minclustersize'),
+            'maxclustersize'    => $self->o('maxclustersize'),
+            'email'             => $self->o('email'),
+            'cpunum'            => $self->o('cpunum'),
+
     };
 }
 
@@ -120,10 +126,15 @@ sub pipeline_wide_parameters {  # these parameter values are visible to all anal
 
 sub resource_classes {
     my ($self) = @_;
+    my $initial_cluster_gigs = int($self->o('cluster_gigs'));
+    my $mem2_cluster_gigs = int($initial_cluster_gigs*2);
+    my $mem3_cluster_gigs = int($initial_cluster_gigs*4);
     return {
          0 => { -desc => 'default',          'LSF' => '' },
          # 1 => { -desc => 'cluster_req',      'LSF' => ' -M'.$self->o('cluster_gigs').'000 -n '.$self->o('cluster_threads').' -q '.$self->o('cluster_queue').' -R "select[ncpus>='.$self->o('cluster_threads').' && mem>'.$self->o('cluster_gigs').'000] rusage[mem='.$self->o('cluster_gigs').'000] span[hosts=1]"' },
-         1 => { -desc => 'cluster_req',      'LSF' => ' -M'.$self->o('cluster_gigs').'000 -n '.$self->o('cluster_threads').' -q '.$self->o('cluster_queue').' -R "rusage[mem='.$self->o('cluster_gigs').'000] span[hosts=1]"' },
+         1 => { -desc => 'cluster_mem1',      'LSF' => '-C0 -M'.$initial_cluster_gigs.'000 -n '.$self->o('cluster_threads').' -q '.$self->o('cluster_queue').' -R "rusage[mem='.$initial_cluster_gigs.'000] span[hosts=1]"' },
+         2 => { -desc => 'cluster_mem2',      'LSF' => '-C0 -M'.$mem2_cluster_gigs.'000 -n '.$self->o('cluster_threads').' -q '.$self->o('cluster_queue').' -R "rusage[mem='.$mem2_cluster_gigs.'000] span[hosts=1]"' },
+         3 => { -desc => 'cluster_mem3',      'LSF' => '-C0 -M'.$mem3_cluster_gigs.'000 -n '.$self->o('cluster_threads').' -q '.$self->o('cluster_queue').' -R "rusage[mem='.$mem3_cluster_gigs.'000] span[hosts=1]"' },
 #        2 => { -desc => 'db_example',      'LSF' => '-R"select['.$self->o('dbresource').'<'.$self->o('dbserver_capacity').'] rusage['.$self->o('dbresource').'=10:duration=10:decay=1]"' },
     };
 }
@@ -150,16 +161,40 @@ sub pipeline_analyses {
 
         {   -logic_name => 'cluster',
             -module     => 'Pinball::Cluster',
-            -parameters => { 
-                            'readsfile'       => $self->o('readsfile'),
-                            'cluster_threads' => $self->o('cluster_threads'),
-                           },
-            -input_ids  => [ {} ],    # only this job is needed at the beginning
+            -parameters => {},
+            -input_ids  => [ { 'readsfile' => $self->o('readsfile'), 'tag' => $self->o('tag'), 'work_dir' => $self->o('work_dir') } ],    # only this job is needed at the beginning
             -flow_into => {
-                2 => [ 'walk' ],      # will create a fan of jobs
-                1 => [ 'report' ],    # will create a funnel job to wait for the fan to complete and add the results
+                2 => [ 'walk' ],
+                1 => [ 'report' ],
+               -1 => [ 'cluster_highmem2' ],
             },
+            -hive_capacity => 20,
             -rc_id => 1,
+        },
+
+        {   -logic_name => 'cluster_highmem2',
+            -module     => 'Pinball::Cluster',
+            -can_be_empty  => 1,
+            -parameters => {},
+            -flow_into => {
+                2 => [ 'walk' ],
+                1 => [ 'report' ],
+               -1 => [ 'cluster_highmem3' ],
+            },
+            -hive_capacity => 20,
+            -rc_id => 2,
+        },
+
+        {   -logic_name => 'cluster_highmem3',
+            -module     => 'Pinball::Cluster',
+            -can_be_empty  => 1,
+            -parameters => {},
+            -flow_into => {
+                2 => [ 'walk' ],
+                1 => [ 'report' ],
+            },
+            -hive_capacity => 20,
+            -rc_id => 3,
         },
 
         {   -logic_name => 'walk',
@@ -177,7 +212,6 @@ sub pipeline_analyses {
             -module     => 'Pinball::Search',
             -hive_capacity => $self->o('cpunum'),
             -failed_job_tolerance => 2,
-            #            -parameters => { 'readsfile' => $self->o('readsfile') },
         },
 
         {   -logic_name => 'report',
