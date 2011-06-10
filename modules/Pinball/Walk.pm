@@ -132,7 +132,7 @@ sub run {
       print STDERR "$wdescfile\n" if ($self->debug);
       $self->param('wdescfile', $wdescfile);
     } else {
-      $self->throw("error running sga walk\n $cmd\n #$wdescfile\n $!\n");
+      $self->warn("error running sga walk\n $cmd\n #$wdescfile\n $!\n");
     }
 }
 
