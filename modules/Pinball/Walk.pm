@@ -38,6 +38,8 @@ sub fetch_input {
 
     my $clstreadsfile   = $self->param('clstreadsfile') || 
       die "'clstreadsfile' is an obligatory parameter, please set it in the input_id hashref";
+    my $work_dir   = $self->param('work_dir') || 
+      die "'work_dir' is an obligatory parameter, please set it in the input_id hashref";
 #    $self->{param1} = $self->param('param1')  || die "'param1' is an obligatory parameter";
 
 }
@@ -74,9 +76,7 @@ sub run {
     my $readsfile = $clstreadsfile; # for convenience
     my ($infilebase,$path,$type) = fileparse($clstreadsfile);
     my $cluster_id; $infilebase =~ /(cluster\-\d+)/; $cluster_id = $1;
-    if (!defined $tag) {
-      $tag = $infilebase . ".w";
-    };
+    $tag = join("\.", $tag, $cluster_id, "w");
 
     my $cmd;
     my $dust_threshold    = '';
@@ -89,7 +89,7 @@ sub run {
     $permute_ambiguous    = "--permute-ambiguous" unless ($no_permute);
 
     # sga preprocess
-    my $preprocess_log = $work_dir . "/$tag.sga.preprocess.log";
+    my $preprocess_log = "$tag.sga.preprocess.log";
     $cmd = "$sga_executable preprocess $sample_threshold $phred64_flag --min-length=$minreadlen $dust_threshold $permute_ambiguous $readsfile -o $tag.fq 2>$preprocess_log";
     print STDERR "$cmd\n" if ($self->debug);
 
@@ -151,7 +151,7 @@ sub write_output {  # nothing to write out, but some dataflow to perform:
     my $wdescfile = $self->param('wdescfile');
     my @output_ids;
     push @output_ids, {'walksfile'=> $walksfile, 'wdescfile' => $wdescfile};
-    print "Created $work_dir ", scalar @output_ids, "\n" if ($self->debug);
+    print "Created jobs ", scalar @output_ids, "\n" if ($self->debug);
     $self->param('output_ids', \@output_ids);
     my $output_ids = $self->param('output_ids');
     $self->dataflow_output_id($output_ids, 1);
