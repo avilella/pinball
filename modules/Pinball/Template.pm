@@ -51,12 +51,12 @@ sub run {
 
     my $param1         = $self->param('param1');
     my $param2         = $self->param('param2');
-    my $sga_executable = $self->param('sga_executable');
+    my $this_executable = $self->param('this_executable');
 
     my $cmd;
     # sga something
     # my $outfile = $input_id . ".something";
-    # $cmd = "$sga_executable something something > $outfile";
+    # $cmd = "$this_executable something something > $outfile";
     print STDERR "$cmd\n" if ($self->debug);
 
     unless(system("$cmd") == 0) {    print("$cmd\n");    $self->throw("error running pinball template $!\n");  }
