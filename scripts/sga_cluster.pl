@@ -62,13 +62,14 @@ $cmd = "$sga_executable index -t $threads --disk=$disk $tag.fq";
 print STDERR "$cmd\n" if ($debug);
 $rerun_string .= "$cmd\n";
 unless(system("$cmd") == 0) {    print("$cmd\n");    throw("error running sga index: $!\n");  }
-exit 0 if ($onlyindex);
 
 # sga rmdup
 $cmd = "$sga_executable rmdup -e $erate -t $threads $tag.fq";
 print STDERR "$cmd\n" if ($debug);
 $rerun_string .= "$cmd\n";
 unless(system("$cmd") == 0) {    print("$cmd\n");    throw("error running sga rmdup: $!\n");  }
+
+exit 0 if ($onlyindex);
 
 # sga cluster
 $cmd = "$sga_executable cluster -m $overlap -c $csize -e $erate -t $threads $tag.rmdup.fa -o $tag.d$dust.$csize.$overlap.e$erate.clusters";
