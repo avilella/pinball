@@ -36,8 +36,8 @@ sub fetch_input {
     $self->{starttime} = time();
     print STDERR "[init] ",time()-$self->{starttime}," secs...\n" if ($self->debug);
 
-    my $clstreadsfile   = $self->param('clstreadsfile') || 
-      die "'clstreadsfile' is an obligatory parameter, please set it in the input_id hashref";
+    my $clst   = $self->param('clst') || 
+      die "'clst' is an obligatory parameter, please set it in the input_id hashref";
     my $work_dir   = $self->param('work_dir') || 
       die "'work_dir' is an obligatory parameter, please set it in the input_id hashref";
 #    $self->{param1} = $self->param('param1')  || die "'param1' is an obligatory parameter";
@@ -71,10 +71,10 @@ sub run {
     my $sample         = $self->param('sample');
     my $work_dir       = $self->param('work_dir');
 
-    my $clstreadsfile   = $self->param('clstreadsfile') || 
-      die "'clstreadsfile' is an obligatory parameter, please set it in the input_id hashref";
-    my $readsfile = $clstreadsfile; # for convenience
-    my ($infilebase,$path,$type) = fileparse($clstreadsfile);
+    my $clst   = $self->param('clst') || 
+      die "'clst' is an obligatory parameter, please set it in the input_id hashref";
+    my $readsfile = $clst; # for convenience
+    my ($infilebase,$path,$type) = fileparse($clst);
     my $cluster_id; $infilebase =~ /(cluster\-\d+)/; $cluster_id = $1;
     $tag = join("\.", $tag, $cluster_id, "w");
 
@@ -85,7 +85,8 @@ sub run {
     my $permute_ambiguous = '';
     $dust_threshold       = "--dust-threshold=" . $dust if (length $dust > 0);
     $sample_threshold     = "--sample=" . $sample if (length $sample > 0);
-    $phred64_flag         = "--phred64" if ($phred64);
+    # phred64 already comes converted from cluster preprocess
+    #    $phred64_flag         = "--phred64" if ($phred64);
     $permute_ambiguous    = "--permute-ambiguous" unless ($no_permute);
 
     # sga preprocess
@@ -112,7 +113,6 @@ sub run {
     print STDERR "$cmd\n" if ($self->debug);
     unless(system("$cmd") == 0) {    print("$cmd\n");    $self->throw("error running sga overlap $!\n");  }
 
-    $DB::single=1;1;
     # sga walk
     my $outdir = $path;
     my $walksfile = $outdir . "$cluster_id.walks";
