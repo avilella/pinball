@@ -3,15 +3,15 @@
 
 =head1 NAME
 
-Pinball::Template
+ Pinball::Template
 
 =head1 SYNOPSIS
 
-The Template module does something.
+ The Template module does something.
 
 =head1 DESCRIPTION
 
-'Pinball::Template' is the XXX step of the Pinball pipeline.
+ 'Pinball::Template' is the XXX step of the Pinball pipeline.
 
 =cut
 
@@ -51,22 +51,22 @@ sub run {
 
     my $param1         = $self->param('param1');
     my $param2         = $self->param('param2');
-    my $this_executable = $self->param('this_executable');
+    my $template_executable = $self->param('template_executable');
 
     my $cmd;
-    # sga something
+    # template something
     # my $outfile = $input_id . ".something";
-    # $cmd = "$this_executable something something > $outfile";
-    print STDERR "$cmd\n" if ($self->debug);
+    # $cmd = "$template_executable something something > $outfile";
+    # print STDERR "$cmd\n" if ($self->debug);
 
-    unless(system("$cmd") == 0) {    print("$cmd\n");    $self->throw("error running pinball template $!\n");  }
+    # unless(system("$cmd") == 0) {    print("$cmd\n");    $self->throw("error running pinball template $!\n");  }
 
-    if (-e $outfile && !-z $outfile) {
-      print STDERR "$outfile\n" if ($self->debug);
-      $self->param('outfile', $outfile);
-    } else {
-      $self->throw("error running pinball template\n $cmd\n #$outfile\n $!\n");
-    }
+    # if (-e $outfile && !-z $outfile) {
+    #   print STDERR "$outfile\n" if ($self->debug);
+    #   $self->param('outfile', $outfile);
+    # } else {
+    #   $self->throw("error running pinball template\n $cmd\n #$outfile\n $!\n");
+    # }
 }
 
 =head2 write_output
