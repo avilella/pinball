@@ -36,7 +36,7 @@ sub fetch_input {
     $self->{starttime} = time();
     print STDERR "[init] ",time()-$self->{starttime}," secs...\n" if ($self->debug);
 
-    $self->{readsfile} = $self->param('readsfile')  || die "'readsfile' is an obligatory parameter";
+    my $tag_rmdup = $self->param('tag_rmdup')  || die "'tag_rmdup' is an obligatory parameter";
 
 }
 
@@ -51,96 +51,26 @@ sub run {
 
     print STDERR "[run init] ",time()-$self->{starttime}," secs...\n" if ($self->debug);
 
-    my $readsfile      = $self->param('readsfile');
+    my $tag_rmdup      = $self->param('tag_rmdup');
     my $tag            = $self->param('tag');
-    my $dust           = $self->param('dust');
-    my $phred64        = $self->param('phred64');
-    my $no_permute     = $self->param('no_permute');
-    my $disk           = $self->param('disk');
     my $threads        = $self->param('cluster_threads') || 1;
     my $overlap        = $self->param('overlap');
     my $csize          = $self->param('csize');
     my $erate          = $self->param('erate');
-    my $minreadlen     = $self->param('minreadlen');
     my $sga_executable = $self->param('sga_executable');
-    my $sample         = $self->param('sample');
     my $work_dir       = $self->param('work_dir');
 
-    my $ret = mkdir $work_dir;
-    print STDERR "# mkdir $work_dir command gave ret value $ret\n" if ($self->debug);
-
-    my ($infilebase,$path,$type) = fileparse($self->param('readsfile'));
-    if (!defined $tag) {
-      $tag = $infilebase . ".clst";
-    };
-
+    my ($infilebase,$path,$type) = fileparse($self->param('tag_rmdup'));
     my $cmd;
-    my $dust_threshold    = '';
-    my $sample_threshold  = '';
-    my $phred64_flag      = '';
-    my $permute_ambiguous = '';
-    $dust_threshold       = "--dust-threshold=" . $dust if (length $dust > 0);
-    $sample_threshold     = "--sample=" . $sample if (length $sample > 0);
-    $phred64_flag         = "--phred64" if ($phred64);
-    $permute_ambiguous    = "--permute-ambiguous" unless ($no_permute);
-
     if (!defined $work_dir) {
       $work_dir = $path;
     }
     chdir($work_dir);
 
-    # cleanup before
-    my $preprocess_log = $work_dir . "/$tag.sga.preprocess.log";
-    $cmd = "rm -f $tag.fq $preprocess_log";
-    print STDERR "$cmd\n" if ($self->debug);
-    unless(system("$cmd") == 0) {    print("$cmd\n");    $self->warn("trying to clean from sga index $!\n");  }
-    print STDERR "[preprocess cleanup] ",time()-$self->{starttime}," secs...\n" if ($self->debug);
-
-    my @readfiles = split(':',$readsfile);
-    # sga preprocess
-    my $count = 0; my $outpipe = '1>'; my $errpipe = '2>';
-    foreach my $file (@readfiles) {
-      $cmd = "$sga_executable preprocess $sample_threshold $phred64_flag --min-length=$minreadlen $dust_threshold $permute_ambiguous $file $outpipe $tag.fq $errpipe $preprocess_log";
-      print STDERR "[preprocess $file] ",time()-$self->{starttime}," secs...\n" if ($self->debug);
-      unless(system("$cmd") == 0) {    print("$cmd\n");    $self->throw("error running sga preprocess $!\n");  } else {
-        $count++;
-      }
-      if ($count>0) {
-        $outpipe = '1>>'; $errpipe = '2>>';
-      }
-    }
-
-    # sga index
-    # this will take about 500MB of memory
-    my $disk_option = ''; $disk_option = "--disk=$disk" if (length($disk)>0);
-
-    # cleanup before
-    $cmd = "rm -f $tag.sai $tag.bwt";
-    print STDERR "$cmd\n" if ($self->debug);
-    unless(system("$cmd") == 0) {    print("$cmd\n");    $self->warn("trying to clean from sga index $!\n");  }
-    print STDERR "[preprocess] ",time()-$self->{starttime}," secs...\n" if ($self->debug);
-
-    $cmd = "$sga_executable index -t $threads $disk_option $tag.fq";
-    print STDERR "$cmd\n" if ($self->debug);
-    unless(system("$cmd") == 0) {    print("$cmd\n");    $self->throw("error running sga index $!\n");  }
-        print STDERR "[index] ",time()-$self->{starttime}," secs...\n" if ($self->debug);
-
-    # cleanup before
-    $cmd = "rm -f $tag.rmdup.bwt $tag.rmdup.dups.fa $tag.rmdup.fa $tag.rmdup.rbwt $tag.rmdup.rsai $tag.rmdup.sai";
-    print STDERR "$cmd\n" if ($self->debug);
-    unless(system("$cmd") == 0) {    print("$cmd\n");    $self->warn("trying to clean from sga rmdup $!\n");  }
-    print STDERR "[rmdup cleanup] ",time()-$self->{starttime}," secs...\n" if ($self->debug);
-
-    # sga rmdup
-    $cmd = "$sga_executable rmdup -e $erate -t $threads $tag.fq";
-    print STDERR "$cmd\n" if ($self->debug);
-    unless(system("$cmd") == 0) {    print("$cmd\n");    $self->throw("error running sga rmdup: $!\n");  }
-        print STDERR "[rmdup] ",time()-$self->{starttime}," secs...\n" if ($self->debug);
-
     # sga cluster
     # $cmd = "$sga_executable cluster -m $overlap -c $csize -e $erate -t $threads $tag.rmdup.fa -o $tag.d$dust.$csize.$overlap.e$erate.clusters";
     my $clustersfile = $work_dir . "/$tag.clusters";
-    $cmd = "$sga_executable cluster -m $overlap -c $csize -e $erate -t $threads $tag.rmdup.fa -o $clustersfile";
+    $cmd = "$sga_executable cluster -m $overlap -c $csize -e $erate -t $threads $tag_rmdup -o $clustersfile";
     print STDERR "$cmd\n" if ($self->debug);
     unless(system("$cmd") == 0) {    print("$cmd\n");    $self->throw("error running sga cluster: $!\n");  }
     print STDERR "[cluster] ",time()-$self->{starttime}," secs...\n" if ($self->debug);
@@ -189,7 +119,7 @@ sub write_output {  # nothing to write out, but some dataflow to perform:
             my $outfile = $self->create_outdir($cluster_id, $work_dir);
             open OUT, ">$outfile" or die $!; print OUT join('',@seq_list); close OUT;
             print STDERR "[ $readsnum - $cluster_id - $outfile - $diff secs...]\n" if ($self->debug);
-            push @output_ids, { 'clstreadsfile' => $outfile, 'work_dir' => $work_dir, 'tag' => $tag };
+            push @output_ids, { 'clst' => $outfile, 'work_dir' => $work_dir, 'tag' => $tag };
           }
         }
         @seq_list = undef;
@@ -205,10 +135,7 @@ sub write_output {  # nothing to write out, but some dataflow to perform:
 
     $self->dataflow_output_id($output_ids, 2);
 
-    $self->warning(scalar(@$output_ids).' jobs have been created');     # warning messages get recorded into 'job_message' table
-
-    ## then flow into the branch#1 funnel; input_id would flow into branch#1 by default anyway, but we request it here explicitly:
-    # $self->dataflow_output_id($self->input_id, 1);
+    $self->warning(scalar(@$output_ids).' jobs have been created');
 }
 
 sub create_outdir {
