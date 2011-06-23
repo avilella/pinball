@@ -54,6 +54,7 @@ sub default_options {
         'pipeline_name'        => 'pinball',
         'disk'                 => 1000000,
         'cluster_threads'      => 1,
+        'cluster_gigs'         => 15,
         'overlap'              => 31,
         'csize'                => 50,
         'erate'                => 0,
@@ -65,7 +66,7 @@ sub default_options {
         'work_dir'             => $ENV{'HOME'}.'/pinball_workdir',
         'phred64'              => 0,
         'tag'                  => '',
-        'no_permute'           => '',
+        'permute'              => '',
         'sample'               => '',
         'minclustersize'       => 10,
         'maxclustersize'       => 100000,
@@ -87,6 +88,8 @@ sub pipeline_wide_parameters {  # these parameter values are visible to all anal
     return {
         %{$self->SUPER::pipeline_wide_parameters},          # here we inherit anything from the base class
 
+            'cluster_threads'   => $self->o('cluster_threads'),
+            'cluster_gigs'      => $self->o('cluster_gigs'),
             'work_dir'          => $self->o('work_dir'),
             'overlap'           => $self->o('overlap'),
             'csize'             => $self->o('csize'),
@@ -98,7 +101,7 @@ sub pipeline_wide_parameters {  # these parameter values are visible to all anal
             'reference'         => $self->o('reference'),
             'phred64'           => $self->o('phred64'),
             'tag'               => $self->o('tag'),
-            'no_permute'        => $self->o('no_permute'),
+            'permute'           => $self->o('permute'),
             'sample'            => $self->o('sample'),
             'minclustersize'    => $self->o('minclustersize'),
             'maxclustersize'    => $self->o('maxclustersize'),
@@ -116,17 +119,19 @@ sub pipeline_wide_parameters {  # these parameter values are visible to all anal
 
 =cut
 
-# sub pipeline_create_commands {
-#     my ($self) = @_;
-#     return [
-#         @{$self->SUPER::pipeline_create_commands},  # inheriting database and hive tables' creation
-#            ];
-# }
+sub pipeline_create_commands {
+    my ($self) = @_;
+    return [
+        @{$self->SUPER::pipeline_create_commands},  # inheriting database and hive tables' creation
+
+           ];
+}
 
 
 sub resource_classes {
     my ($self) = @_;
-    my $initial_cluster_gigs = int($self->o('cluster_gigs'));
+    my $cluster_gigs_str = $self->o('cluster_gigs');
+    my $initial_cluster_gigs = int($cluster_gigs_str);
     my $mem2_cluster_gigs = int($initial_cluster_gigs*2);
     my $mem3_cluster_gigs = int($initial_cluster_gigs*4);
     return {
@@ -159,15 +164,37 @@ sub pipeline_analyses {
     my ($self) = @_;
     return [
 
+        {   -logic_name => 'preprocess',
+            -module     => 'Pinball::Preprocess',
+            -parameters => {},
+            -input_ids  => [ { 'seq' => $self->o('seq'), 'tag' => $self->o('tag'), 'work_dir' => $self->o('work_dir') } ],
+            -flow_into => {
+                1 => [ 'index' ],
+            },
+            -failed_job_tolerance => 100,
+            -hive_capacity => 100,
+        },
+
+        {   -logic_name => 'index',
+            -module     => 'Pinball::Index',
+            -parameters => {},
+            -flow_into => {
+                2 => [ 'extend', 'cluster' ],
+            },
+            -failed_job_tolerance => 100,
+            -hive_capacity => 100,
+            -rc_id => 1,
+        },
+
         {   -logic_name => 'cluster',
             -module     => 'Pinball::Cluster',
             -parameters => {},
-            -input_ids  => [ { 'readsfile' => $self->o('readsfile'), 'tag' => $self->o('tag'), 'work_dir' => $self->o('work_dir') } ],    # only this job is needed at the beginning
             -flow_into => {
                 2 => [ 'walk' ],
                 1 => [ 'report' ],
                -1 => [ 'cluster_highmem2' ],
             },
+            -failed_job_tolerance => 100,
             -hive_capacity => 20,
             -rc_id => 1,
         },
@@ -181,6 +208,7 @@ sub pipeline_analyses {
                 1 => [ 'report' ],
                -1 => [ 'cluster_highmem3' ],
             },
+            -failed_job_tolerance => 100,
             -hive_capacity => 20,
             -rc_id => 2,
         },
@@ -193,6 +221,7 @@ sub pipeline_analyses {
                 2 => [ 'walk' ],
                 1 => [ 'report' ],
             },
+            -failed_job_tolerance => 100,
             -hive_capacity => 20,
             -rc_id => 3,
         },
@@ -201,17 +230,31 @@ sub pipeline_analyses {
             -module     => 'Pinball::Walk',
             -parameters => {},
             -flow_into => {
-                1 => [ 'search'  ],
+#                1 => [ 'search', 'minipileup' ],
+                1 => [ 'search' ],
             },
             -hive_capacity => $self->o('cpunum'),
-            -failed_job_tolerance => 2,
+            -failed_job_tolerance => 20,
             # input_id comes from cluster
         },
 
         {   -logic_name => 'search',
             -module     => 'Pinball::Search',
             -hive_capacity => $self->o('cpunum'),
-            -failed_job_tolerance => 2,
+            -failed_job_tolerance => 20,
+        },
+
+        # {   -logic_name => 'minipileup',
+        #     -module     => 'Pinball::Minipileup',
+        #     -hive_capacity => $self->o('cpunum'),
+        #     -failed_job_tolerance => 5,
+        # },
+
+        {   -logic_name => 'extend',
+            -module     => 'Pinball::Extend',
+            -hive_capacity => $self->o('cpunum'),
+            -parameters => {},
+            -wait_for => [ 'index', 'cluster' ],
         },
 
         {   -logic_name => 'report',
