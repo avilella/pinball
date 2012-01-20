@@ -95,7 +95,8 @@ sub write_output {  # nothing to write out, but some dataflow to perform:
     $self->param('output_ids', \@output_files);
     my $output_ids = $self->param('output_ids');
 
-    $self->dataflow_output_id($output_ids, 2);
+    my $job_ids = $self->dataflow_output_id($output_ids, 2);
+    print join("\n",@$job_ids), "\n" if ($self->debug);
 
     $self->warning(scalar(@$output_ids).' jobs have been created');     # warning messages get recorded into 'job_message' table
 
