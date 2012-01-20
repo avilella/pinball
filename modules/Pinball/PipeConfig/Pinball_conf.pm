@@ -54,23 +54,29 @@ sub default_options {
         'pipeline_name'        => 'pinball',
         'disk'                 => 1000000,
         'cluster_threads'      => 1,
+        'cluster_queue'        => '',
         'cluster_gigs'         => 15,
-        'overlap'              => 31,
-        'csize'                => 50,
+        'overlap'              => 25,
+        'csize'                => 10,
         'erate'                => 0,
         'minreadlen'           => 34,
         'dust'                 => 1,
+        'bwa_z'                => 1000,
+        'allhits'              => 0,
+        'longest_n'            => 20,
         'sga_executable'       => $ENV{'HOME'}.'/pinball/sga/src/sga',
-        'search_executable'    => $ENV{'HOME'}.'/pinball/third-party/ncbi-blast/bin/blastn',
+        'search_executable'    => $ENV{'HOME'}.'/pinball/bwa/bwa',
+        'samtools_executable'  => $ENV{'HOME'}.'/pinball/samtools/samtools',
         'reference'            => '/nfs/nobackup/ensembl/avilella/refs/Homo_sapiens.fa',
         'work_dir'             => $ENV{'HOME'}.'/pinball_workdir',
         'phred64'              => 0,
         'tag'                  => '',
+        'extendtag'            => '',
         'permute'              => '',
         'sample'               => '',
-        'minclustersize'       => 10,
+        'minclustersize'       => '',
         'maxclustersize'       => 100000,
-        'cpunum'               => 4,
+        'cpunum'               => 8,
         'email'                => 'avilella@gmail.com',
 
         # 'pipeline_db' => {
@@ -96,11 +102,15 @@ sub pipeline_wide_parameters {  # these parameter values are visible to all anal
             'erate'             => $self->o('erate'),
             'minreadlen'        => $self->o('minreadlen'),
             'dust'              => $self->o('dust'),
+            'bwa_z'             => $self->o('bwa_z'),
+            'allhits'           => $self->o('allhits'),
+            'longest_n'         => $self->o('longest_n'),
             'sga_executable'    => $self->o('sga_executable'),
             'search_executable' => $self->o('search_executable'),
             'reference'         => $self->o('reference'),
             'phred64'           => $self->o('phred64'),
             'tag'               => $self->o('tag'),
+            'extendtag'         => $self->o('extendtag'),
             'permute'           => $self->o('permute'),
             'sample'            => $self->o('sample'),
             'minclustersize'    => $self->o('minclustersize'),
@@ -124,7 +134,8 @@ sub pipeline_create_commands {
     return [
         @{$self->SUPER::pipeline_create_commands},  # inheriting database and hive tables' creation
 
-           ];
+        'mkdir -p '.$self->o('work_dir'),
+    ];
 }
 
 
@@ -135,11 +146,12 @@ sub resource_classes {
     my $mem2_cluster_gigs = int($initial_cluster_gigs*2);
     my $mem3_cluster_gigs = int($initial_cluster_gigs*4);
     return {
-         0 => { -desc => 'default',          'LSF' => '' },
+         0 => { -desc => 'default',          'LSF' => ' -q '.$self->o('cluster_queue') },
          # 1 => { -desc => 'cluster_req',      'LSF' => ' -M'.$self->o('cluster_gigs').'000 -n '.$self->o('cluster_threads').' -q '.$self->o('cluster_queue').' -R "select[ncpus>='.$self->o('cluster_threads').' && mem>'.$self->o('cluster_gigs').'000] rusage[mem='.$self->o('cluster_gigs').'000] span[hosts=1]"' },
-         1 => { -desc => 'cluster_mem1',      'LSF' => '-C0 -M'.$initial_cluster_gigs.'000 -n '.$self->o('cluster_threads').' -q '.$self->o('cluster_queue').' -R "rusage[mem='.$initial_cluster_gigs.'000] span[hosts=1]"' },
-         2 => { -desc => 'cluster_mem2',      'LSF' => '-C0 -M'.$mem2_cluster_gigs.'000 -n '.$self->o('cluster_threads').' -q '.$self->o('cluster_queue').' -R "rusage[mem='.$mem2_cluster_gigs.'000] span[hosts=1]"' },
-         3 => { -desc => 'cluster_mem3',      'LSF' => '-C0 -M'.$mem3_cluster_gigs.'000 -n '.$self->o('cluster_threads').' -q '.$self->o('cluster_queue').' -R "rusage[mem='.$mem3_cluster_gigs.'000] span[hosts=1]"' },
+         1 => { -desc => 'mem1',      'LSF' => '-C0 -M'.$initial_cluster_gigs.'000 -n '.$self->o('cluster_threads').' -q '.$self->o('cluster_queue').' -R "rusage[mem='.$initial_cluster_gigs.'000] span[hosts=1]"' },
+         2 => { -desc => 'mem2',      'LSF' => '-C0 -M'.$mem2_cluster_gigs.'000 -n '.$self->o('cluster_threads').' -q '.$self->o('cluster_queue').' -R "rusage[mem='.$mem2_cluster_gigs.'000] span[hosts=1]"' },
+         3 => { -desc => 'mem3',      'LSF' => '-C0 -M'.$mem3_cluster_gigs.'000 -n '.$self->o('cluster_threads').' -q '.$self->o('cluster_queue').' -R "rusage[mem='.$mem3_cluster_gigs.'000] span[hosts=1]"' },
+         4 => { -desc => 'run10h',      'LSF' => '-W 600' },
 #        2 => { -desc => 'db_example',      'LSF' => '-R"select['.$self->o('dbresource').'<'.$self->o('dbserver_capacity').'] rusage['.$self->o('dbresource').'=10:duration=10:decay=1]"' },
     };
 }
@@ -179,18 +191,42 @@ sub pipeline_analyses {
             -module     => 'Pinball::Index',
             -parameters => {},
             -flow_into => {
-                2 => [ 'extend', 'cluster' ],
+                2 => [ 'cluster' ],
+               -1 => [ 'index_highmem2' ],
             },
             -failed_job_tolerance => 100,
             -hive_capacity => 100,
             -rc_id => 1,
         },
 
+        {   -logic_name => 'index_highmem2',
+            -module     => 'Pinball::Index',
+            -parameters => {},
+            -flow_into => {
+                2 => [ 'cluster' ],
+               -1 => [ 'index_highmem3' ],
+            },
+            -failed_job_tolerance => 100,
+            -hive_capacity => 100,
+            -rc_id => 2,
+        },
+
+        {   -logic_name => 'index_highmem3',
+            -module     => 'Pinball::Index',
+            -parameters => {},
+            -flow_into => {
+                2 => [ 'cluster' ],
+            },
+            -failed_job_tolerance => 100,
+            -hive_capacity => 100,
+            -rc_id => 3,
+        },
+
         {   -logic_name => 'cluster',
             -module     => 'Pinball::Cluster',
             -parameters => {},
             -flow_into => {
-                2 => [ 'walk' ],
+                2 => [ 'hashcluster' ],
                 1 => [ 'report' ],
                -1 => [ 'cluster_highmem2' ],
             },
@@ -204,7 +240,7 @@ sub pipeline_analyses {
             -can_be_empty  => 1,
             -parameters => {},
             -flow_into => {
-                2 => [ 'walk' ],
+                2 => [ 'hashcluster' ],
                 1 => [ 'report' ],
                -1 => [ 'cluster_highmem3' ],
             },
@@ -218,7 +254,7 @@ sub pipeline_analyses {
             -can_be_empty  => 1,
             -parameters => {},
             -flow_into => {
-                2 => [ 'walk' ],
+                2 => [ 'hashcluster' ],
                 1 => [ 'report' ],
             },
             -failed_job_tolerance => 100,
@@ -226,40 +262,42 @@ sub pipeline_analyses {
             -rc_id => 3,
         },
 
+        {   -logic_name => 'hashcluster',
+            -module     => 'Pinball::Hashcluster',
+            -parameters => {},
+            -flow_into => {
+                1 => [ 'walk' ],
+            },
+            -hive_capacity => 200,
+            -failed_job_tolerance => 100,
+            # input_id comes from cluster
+        },
+
         {   -logic_name => 'walk',
             -module     => 'Pinball::Walk',
             -parameters => {},
             -flow_into => {
-#                1 => [ 'search', 'minipileup' ],
-                1 => [ 'search' ],
+                3 => [ 'search' ],
             },
-            -hive_capacity => $self->o('cpunum'),
-            -failed_job_tolerance => 20,
+            -hive_capacity => 200,
+            -batch_size => 20,
+            -failed_job_tolerance => 100,
+            # Limited to 10h
+            -rc_id => 4,
             # input_id comes from cluster
         },
 
         {   -logic_name => 'search',
             -module     => 'Pinball::Search',
-            -hive_capacity => $self->o('cpunum'),
-            -failed_job_tolerance => 20,
-        },
-
-        # {   -logic_name => 'minipileup',
-        #     -module     => 'Pinball::Minipileup',
-        #     -hive_capacity => $self->o('cpunum'),
-        #     -failed_job_tolerance => 5,
-        # },
-
-        {   -logic_name => 'extend',
-            -module     => 'Pinball::Extend',
-            -hive_capacity => $self->o('cpunum'),
-            -parameters => {},
-            -wait_for => [ 'index', 'cluster' ],
+            -hive_capacity => 200,
+            -batch_size => 20,
+            -failed_job_tolerance => 100,
         },
 
         {   -logic_name => 'report',
             -module     => 'Pinball::Report',
             -hive_capacity => $self->o('cpunum'),
+            -failed_job_tolerance => 100,
             -parameters => {},
             -wait_for => [ 'walk', 'search' ],   # comes from the first analysis
         },
