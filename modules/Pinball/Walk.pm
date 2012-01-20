@@ -36,10 +36,15 @@ sub fetch_input {
     $self->{starttime} = time();
     print STDERR "[init] ",time()-$self->{starttime}," secs...\n" if ($self->debug);
 
-    my $clst   = $self->param('clst') || 
-      die "'clst' is an obligatory parameter, please set it in the input_id hashref";
+    my $clst    = $self->param('clst');
+    my $clstext = $self->param('clstext');
+    die "'clst' or 'clstext' are obligatory parameters, please set one of them in the input_id hashref"
+      unless (defined $clst || defined $clstext);
     my $work_dir   = $self->param('work_dir') || 
       die "'work_dir' is an obligatory parameter, please set it in the input_id hashref";
+
+    # return 1 unless (-z $clst);
+
 #    $self->{param1} = $self->param('param1')  || die "'param1' is an obligatory parameter";
 
 }
@@ -64,15 +69,21 @@ sub run {
     my $disk           = $self->param('disk');
 
     my $overlap        = $self->param('overlap');
+    # # FIXME - right now we just set overlap to -10%
+    # $overlap = $overlap - int($overlap/10);
+
     my $csize          = $self->param('csize');
     my $erate          = $self->param('erate');
     my $minreadlen     = $self->param('minreadlen');
+    my $walkslimit     = $self->param('walkslimit') || 100;
+    my $longest_n      = $self->param('longest_n') || 20;
     my $sga_executable = $self->param('sga_executable');
     my $sample         = $self->param('sample');
     my $work_dir       = $self->param('work_dir');
 
-    my $clst   = $self->param('clst') || 
-      die "'clst' is an obligatory parameter, please set it in the input_id hashref";
+    my $clst    = $self->param('clst');
+    my $clstext = $self->param('clstext');
+    $clst = $clstext if (!(defined $clst) && defined $clstext);
     my $readsfile = $clst; # for convenience
     my ($infilebase,$path,$type) = fileparse($clst);
     my $cluster_id; $infilebase =~ /(cluster\-\d+)/; $cluster_id = $1;
@@ -84,7 +95,7 @@ sub run {
     my $phred64_flag      = '';
     my $permute_ambiguous = '';
     $dust_threshold       = "--dust-threshold=" . $dust if (length $dust > 0);
-    $sample_threshold     = "--sample=" . $sample if (length $sample > 0);
+    # $sample_threshold     = "--sample=" . $sample if (length $sample > 0);
     # phred64 already comes converted from cluster preprocess
     #    $phred64_flag         = "--phred64" if ($phred64);
     $permute_ambiguous    = "--permute-ambiguous" unless ($no_permute);
@@ -93,7 +104,7 @@ sub run {
     my $preprocess_log = "$tag.sga.preprocess.log";
     $cmd = "$sga_executable preprocess $sample_threshold $phred64_flag --min-length=$minreadlen $dust_threshold $permute_ambiguous $readsfile -o $tag.fq 2>$preprocess_log";
     print STDERR "$cmd\n" if ($self->debug);
-
+    $DB::single=1;1;
     unless(system("$cmd") == 0) {    print("$cmd\n");    $self->throw("error running sga preprocess $!\n");  }
 
     # sga index
@@ -103,37 +114,94 @@ sub run {
     print STDERR "$cmd\n" if ($self->debug);
     unless(system("$cmd") == 0) {    print("$cmd\n");    $self->throw("error running sga index $!\n");  }
 
-    # sga rmdup
-    $cmd = "$sga_executable rmdup -e $erate -t 1 $tag.fq";
+    # sga filter
+    $cmd = "$sga_executable filter --no-kmer-check -t 1 $tag.fq";
     print STDERR "$cmd\n" if ($self->debug);
-    unless(system("$cmd") == 0) {    print("$cmd\n");    $self->throw("error running sga rmdup: $!\n");  }
+    $DB::single=1;1;
+    unless(system("$cmd") == 0) {    print("$cmd\n");    $self->throw("error running sga filter: $!\n");  }
 
-    # sga overlap
-    $cmd = "$sga_executable overlap -m $overlap -t 1 --exhaustive -e $erate $tag.rmdup.fa -o $tag.asqg.gz";
-    print STDERR "$cmd\n" if ($self->debug);
-    unless(system("$cmd") == 0) {    print("$cmd\n");    $self->throw("error running sga overlap $!\n");  }
+    my $internal_overlap_value = $overlap;
+    my $walk_output = 0;
+    my $walksfile;
+    my $wdescfile;
+    while (0 == $walk_output) {
+      print STDERR "# internal_overlap_value=$internal_overlap_value\n" if ($self->debug);
+      $walk_output = 1; # FIXME looping disabled here for testing, set back to 0
+      # sga overlap
+      $cmd = "$sga_executable overlap -m $internal_overlap_value -t 1 --exhaustive -e $erate $tag.filter.pass.fa -o $tag.asqg.gz";
+      $DB::single=1;1;
+      print STDERR "$cmd\n" if ($self->debug);
+      unless(system("$cmd") == 0) {    print("$cmd\n");    $self->throw("error running sga overlap $!\n");  }
 
-    # sga walk
-    my $outdir = $path;
-    my $walksfile = $outdir . "$cluster_id.walks";
-    my $wdescfile = $outdir . "$cluster_id.wdesc";
-    $cmd = "$sga_executable walk --prefix=$cluster_id --component-walks -o $walksfile --description-file=$wdescfile $tag.asqg.gz";
-    print STDERR "$cmd\n" if ($self->debug);
-    unless(system("$cmd") == 0) {    print("$cmd\n");    $self->throw("error running sga walk $!\n");  }
+      # sga walk
+      my $outdir = $path;
+      my $ext = "walks"; $ext = "walksext" if ($clst =~ /\.clstext$/);
+      $walksfile = $outdir . "$cluster_id.$ext";
+      $wdescfile = $outdir . "$cluster_id.$ext.sam";
+      #    $cmd = "$sga_executable walk --prefix=$cluster_id --component-walks -o $walksfile --description-file=$wdescfile $tag.asqg.gz";
+      $cmd = "$sga_executable walk --prefix=$cluster_id --component-walks --longest-n=$longest_n -o $walksfile --sam=$wdescfile $tag.asqg.gz";
+      print STDERR "$cmd\n" if ($self->debug);
+      $DB::single=1;1;#??
+      $self->db->dbc->disconnect_when_inactive(1);
+      my $ret = system("$cmd");
+      unless ($ret == 0) {    print("$cmd\n");    print STDERR "error running sga walk $!\n";  }
+      $self->db->dbc->disconnect_when_inactive(0);
 
-    if (-e $walksfile && !-z $walksfile) {
+      # Preprocess to analyze walks
+      my $temp_id  = $self->worker->process_id; $temp_id =~ s/\[\d+\]//; $temp_id .= int(rand(10000));
+      my $dust_walks_log = $worker_temp_directory . $temp_id . ".preprocess.walks.log";
+      $cmd = "$sga_executable preprocess $walksfile 1> /dev/null 2>$dust_walks_log";
+      print STDERR "$cmd\n" if ($self->debug);
+      if(system("$cmd") != 0) {    print("$cmd\n");    $self->throw("error running pinball preprocess walks $!\n");  }
+      my $numwalks = 1; my $perc_walks = 1; my $numbases = 100; my $perc_bases = 1;
+      open DUSTWALKLOG, $dust_walks_log or die $!;
+      while (<DUSTWALKLOG>) {
+        if (/Reads kept\:/) {
+          $_ =~ /Reads kept\:\s+(\d+)\s+\((\S+)\)/;
+          $numwalks = $1; $perc_walks = $2;
+        }
+        if (/Bases kept\:/) {
+          $_ =~ /Bases kept\:\s+(\d+)\s+\((\S+)\)/;
+          $numbases = $1; $perc_bases = $2;
+        }
+      }
+      $DB::single=1;1;
+      my $do_simplified_assembly = 0;
+      if ($numwalks > $walkslimit) {
+        $do_simplified_assembly = 1;
+      }
+
+      if (-e $walksfile && !-z $walksfile) {
+        $walk_output = 1;
+      } elsif ( $internal_overlap_value > 200) {
+        $walk_output = 1;
+      } else {
+        $do_simplified_assembly = 1;
+      } 
+
+      if (1 == $do_simplified_assembly) {
+#        my $debugging_cmd = "zcat $tag.asqg.gz | /homes/avilella/src/sga/sgatools/asqg2dot.pl > $tag.dot && dot -Tgif < $tag.dot > $walksfile.gif";
+        my $debugging_cmd = "$sga_executable assemble --bubble=0 --cut-terminal=0 --min-branch-length=0 $tag.asqg.gz -o $walksfile";
+        print STDERR "# $debugging_cmd\n";
+        system($debugging_cmd);
+        $internal_overlap_value++;
+      }
+    }
+
+    if (-e $walksfile && !-z $walksfile || !-z "$walksfile-contigs.fa") {
       print STDERR "$walksfile\n" if ($self->debug);
       $self->param('walksfile', $walksfile);
+      $self->param('wdescfile', $wdescfile);
     } else {
       $self->throw("error running sga walk\n $cmd\n #$walksfile\n $!\n");
     }
 
-    if (-e $wdescfile && !-z $wdescfile) {
-      print STDERR "$wdescfile\n" if ($self->debug);
-      $self->param('wdescfile', $wdescfile);
-    } else {
-      $self->warn("error running sga walk\n $cmd\n #$wdescfile\n $!\n");
-    }
+    # if (-e $wdescfile && !-z $wdescfile) {
+    #   print STDERR "$wdescfile\n" if ($self->debug);
+    #   $self->param('wdescfile', $wdescfile);
+    # } else {
+    #   $self->throw("error running sga walk\n $cmd\n #$wdescfile\n $!\n");
+    # }
 }
 
 =head2 write_output
@@ -146,6 +214,11 @@ sub write_output {  # nothing to write out, but some dataflow to perform:
     my $self = shift @_;
 
     my $work_dir = $self->param('work_dir');
+    my $clst     = $self->param('clst');
+    my $clstext  = $self->param('clstext');
+    my $dataflow = 3;
+    $dataflow = 2 if (!(defined $clst) && defined $clstext);
+    # return 1 unless (-z $clst);
 
     my $walksfile = $self->param('walksfile');
     my $wdescfile = $self->param('wdescfile');
@@ -154,7 +227,8 @@ sub write_output {  # nothing to write out, but some dataflow to perform:
     print "Created jobs ", scalar @output_ids, "\n" if ($self->debug);
     $self->param('output_ids', \@output_ids);
     my $output_ids = $self->param('output_ids');
-    $self->dataflow_output_id($output_ids, 1);
+    my $job_ids = $self->dataflow_output_id($output_ids, $dataflow);
+    print "# ", join("\n",@$job_ids), "\n" if ($self->debug);
 
     $self->warning(scalar(@$output_ids).' jobs have been created');     # warning messages get recorded into 'job_message' table
 
