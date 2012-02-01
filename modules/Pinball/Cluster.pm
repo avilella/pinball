@@ -74,9 +74,9 @@ sub run {
     }
     chdir($work_dir);
 
-    my $verbose_flag = '-v'; $verbose_flag = '-v' if ($self->debug);
+    # my $verbose_flag = '-v'; $verbose_flag = '-v' if ($self->debug);
     # sga cluster
-    # $cmd = "$sga_executable cluster $verbose_flag -m $overlap -c $csize -e $erate -t $threads $tag.filter.pass.fa -o $tag.d$dust.$csize.$overlap.e$erate.clusters";
+    # $cmd = "$sga_executable cluster -m $overlap -c $csize -e $erate -t $threads $tag.filter.pass.fa -o $tag.d$dust.$csize.$overlap.e$erate.clusters";
     my $clustersfile = $work_dir . "/$tag.clusters";
     $cmd = "$sga_executable cluster -m $overlap -c $csize -e $erate -t $threads $tag_filter -o $clustersfile";
     print STDERR "$cmd\n" if ($self->debug);
