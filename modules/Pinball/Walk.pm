@@ -69,8 +69,6 @@ sub run {
     my $disk           = $self->param('disk');
 
     my $overlap        = $self->param('overlap');
-    # # FIXME - right now we just set overlap to -10%
-    # $overlap = $overlap - int($overlap/10);
 
     my $csize          = $self->param('csize');
     my $erate          = $self->param('erate');
@@ -126,7 +124,6 @@ sub run {
     my $wdescfile;
     while (0 == $walk_output) {
       print STDERR "# internal_overlap_value=$internal_overlap_value\n" if ($self->debug);
-      $walk_output = 1; # FIXME looping disabled here for testing, set back to 0
       # sga overlap
       $cmd = "$sga_executable overlap -m $internal_overlap_value -t 1 --exhaustive -e $erate $tag.filter.pass.fa -o $tag.asqg.gz";
       $DB::single=1;1;
