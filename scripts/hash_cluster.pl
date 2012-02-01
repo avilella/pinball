@@ -44,9 +44,9 @@ while (<FILE>) {
     if (defined @seq_list) {
       if (scalar @seq_list < $maxsize && $minsize < scalar @seq_list) {
         $DB::single=$debug;1;
-        my $outfile = $self->create_outdir($cluster_id);
+        my $outfile = $self->create_outdir($last_cluster_id);
         open OUT, ">$outfile" or die $!; print OUT join('',@seq_list); close OUT;
-        print STDERR "[ $readsnum - $cluster_id - $outfile - $diff secs...]\n" if ($debug);
+        print STDERR "[ $readsnum - $last_cluster_id - $outfile - $diff secs...]\n" if ($debug);
         print HASHFILE "$outfile\n";
       }
     }
