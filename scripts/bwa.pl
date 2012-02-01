@@ -1,32 +1,37 @@
-#!/usr/local/bin/perl
+#!/usr/bin/perl
+use strict;
 use Getopt::Long;
 
-my ($databasefile,$readsfile,$onlyindex,$tmpdir,$threads,$tag,$debug);
+my ($databasefile,$readsfile,$onlyindex,$tmpdir,$threads,$tag,$debug,$onlyhits);
 $tag = time;
-my $bwa_executable      = "/nfs/users/nfs_a/avilella/src/bwa/latest/bwa-0.5.9rc1/bwa";
-my $samtools_executable = "/nfs/users/nfs_a/avilella/src/samtools/latest/samtools/samtools";
+my $bwa_executable      = "/homes/avilella/pinball/bwa/bwa";
+my $samtools_executable = "/homes/avilella/pinball/samtools/samtools";
 my $indexmethod = '';
 my $method = 'aln';
 my $tmpdir = '/tmp';
-my $z_option = '';
+my $z_option = 1000;
+my $onlyhits_option = '';
 
-GetOptions(
-	   'db|input|databasefile:s' => \$databasefile,
-           'tmpdir:s'  => \$tmpdir,
-	   'r|reads|readsfile:s' => \$readsfile,
-	   't|tag:s' => \$tag,
-	   'threads:s' => \$threads,
-           'd|debug:s' => \$debug,
-           'onlyindex:s' => \$onlyindex,
-           'indexmethod:s' => \$indexmethod,
-           'method:s' => \$method,
-           'z_option:s' => \$z_option,
-	   'bwa_exe:s' => \$bwa_executable,
-	   'samtools_exe:s' => \$samtools_executable,
-          );
+GetOptions
+  (
+   'ref|db|input|databasefile:s'               => \$databasefile,
+   'tmpdir:s'                                  => \$tmpdir,
+   'r|reads|readsfile:s'                       => \$readsfile,
+   't|tag:s'                                   => \$tag,
+   'threads:s'                                 => \$threads,
+   'd|debug:s'                                 => \$debug,
+   'onlyindex|indexonly|only_index|index_only' => \$onlyindex,
+   'onlyhits|hitsonly'                         => \$onlyhits,
+   'indexmethod:s'                             => \$indexmethod,
+   'method:s'                                  => \$method,
+   'z_option:s'                                => \$z_option,
+   'bwa_exe|bwa_executable:s'                  => \$bwa_executable,
+   'samtools_exe|samtools_executable:s'        => \$samtools_executable,
+  );
 
 my $self = bless {};
 my $tmp_dir = $self->worker_process_temp_directory;
+$onlyhits_option = '-F 0x4' if (defined $onlyhits);
 
 my $cmd;
 # bwa index
@@ -63,7 +68,7 @@ if ($method eq 'bwasw') {
 }
 
 # samtools view
-$cmd = "$samtools_executable view -S -b -o $tmp_dir/$$.bam $tmp_dir/$$.sam";
+$cmd = "$samtools_executable view $onlyhits_option -S -b -o $tmp_dir/$$.bam $tmp_dir/$$.sam";
 print STDERR "$cmd\n" if ($debug);
 unless(system("$cmd") == 0) {    print("$cmd\n");    throw("error running samtools view: $!\n");  }
 
@@ -79,6 +84,12 @@ unless(system("$cmd") == 0) {    print("$cmd\n");    throw("error running samtoo
 
 print "$tag.bam\n";
 print "$tag.bam.bai\n";
+
+if ($debug) {
+  $cmd = "$samtools_executable view $tag.bam" if ($debug);
+  print STDERR "$cmd\n" if ($debug);
+  unless(system("$cmd") == 0) {    print("$cmd\n");    throw("error running samtools view: $!\n");  }
+}
 
 $self->cleanup_worker_process_temp_directory;
 
