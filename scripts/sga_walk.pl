@@ -6,7 +6,7 @@ use File::Basename;
 my $self = bless {};
 
 my ($readsfile,$no_permute,$dust,$sample,$readsfile,$onlyindex,$minreadlen,$tag,
-    $exhaustive_overlap,$overlap,$csize,$threads,$debug);
+    $exhaustive_overlap,$overlap,$csize,$threads,$debug,$this_tmpdir);
 my $disk = 1000000;
 $threads = 1;
 $overlap = 31;
@@ -32,9 +32,11 @@ GetOptions(
            'd|debug:s' => \$debug,
            'onlyindex:s' => \$onlyindex,
 	   'sga_exe:s' => \$sga_executable,
+	   'this_tmpdir:s' => \$this_tmpdir,
           );
 
-my $tmp_dir = $self->worker_process_temp_directory(1);
+$self->{_tmp_dir} = $this_tmpdir if (defined $this_tmpdir);
+$self->worker_process_temp_directory(1);
 my ($infilebase,$path,$type) = fileparse($readsfile);
 if (!defined $tag) {
   $tag = $infilebase . ".w";
@@ -52,6 +54,7 @@ $dust_threshold = "--dust-threshold=" . $dust if (length $dust > 0);
 $sample_threshold = "--sample=" . $sample if (length $sample > 0);
 $permute_ambiguous = "--permute-ambiguous" unless ($no_permute);
 # sga preprocess
+# $cmd = "$sga_executable preprocess -p 0 $sample_threshold --min-length=$minreadlen $dust_threshold $permute_ambiguous $readsfile -o $tag.fq 2>$tag.preprocess.txt";
 $cmd = "$sga_executable preprocess $sample_threshold --min-length=$minreadlen $dust_threshold $permute_ambiguous $readsfile -o $tag.fq 2>$tag.preprocess.txt";
 print STDERR "$cmd\n" if ($debug);
 $rerun_string .= "$cmd\n";
@@ -79,7 +82,8 @@ unless(system("$cmd") == 0) {    print("$cmd\n");    die("error running sga over
 
 # sga walk
 my $outdir = $path;
-$cmd = "$sga_executable walk --component-walks -o $outdir/$tag.walks --description-file=$outdir/$tag.wdesc $tag.asqg.gz";
+#$cmd = "$sga_executable walk --prefix=$tag --component-walks -o $outdir/$tag.walks --description-file=$outdir/$tag.wdesc $tag.asqg.gz";
+$cmd = "$sga_executable walk --prefix=$tag --component-walks -o $outdir/$tag.walks --sam=$outdir/$tag.sam $tag.asqg.gz";
 print STDERR "$cmd\n" if ($debug);
 $rerun_string .= "$cmd\n";
 unless(system("$cmd") == 0) {    print("$cmd\n");    die("error running sga walk: $!\n");  }
@@ -92,7 +96,7 @@ sub DESTROY {
   print STDERR $rerun_string if ($debug);
 }
 
-$self->cleanup_worker_process_temp_directory(1);
+$self->cleanup_worker_process_temp_directory(1) unless defined($this_tmpdir);
 
 1;
 
