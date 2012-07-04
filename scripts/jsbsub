@@ -1,0 +1,163 @@
+#! /usr/bin/perl
+#
+# Submission wrapper for LSF
+# Recognizes parameters for the number
+# of cpus to use, the amount of memory to reserve
+# and the amount of disk space required.
+# 
+use strict;
+use Getopt::Long;
+Getopt::Long::Configure('pass_through');
+
+my $memstr = "";
+my $tempstr = "";
+my $prefix = "";
+my $name = "";
+my $depend = "";
+my $depend_end = "";
+my $cpu = 1;
+my $queue = "";
+my $dryRun = 0;
+
+GetOptions("mem=s" => \$memstr,
+           "prefix=s" => \$prefix,
+           "name=s" => \$name,
+           "tmp=s" => \$tempstr,
+           "cpu=i" => \$cpu,
+           "queue=s" => \$queue,
+           "depend=s" => \$depend,
+           "depend-end=s" => \$depend_end,
+           "dry-run" => \$dryRun);
+
+
+# Build the LSF command
+
+# Set a suitable prefix for the job
+# By default this uses the job ID
+if($prefix eq "")
+{
+	$prefix = "j%J";
+}
+
+my $opt_str = "-o $prefix.out -e $prefix.err ";
+
+# Set the name for the job
+if($name ne "")
+{
+	$opt_str .= "-J$name ";
+}
+
+# Set job dependencies
+if($depend ne "")
+{
+	$opt_str .= "-w 'done($depend)' ";
+}
+if($depend_end ne "")
+{
+	$opt_str .= "-w '$depend_end' ";
+}
+
+# Set the number of cpus to use
+if($cpu > 1)
+{
+	$opt_str .= "-n$cpu " . qq(-R "span[hosts=1]") . " ";
+}
+
+my @rselect;
+my @rusage;
+my $memory_bsub_str = "";
+
+# Add memory parameters
+if($memstr ne "")
+{
+    my $mb = parse_memstr($memstr);
+
+    push @rselect, "mem>$mb";
+    push @rusage, "mem=$mb";
+    $memory_bsub_str = "-M$mb";
+
+}
+
+# Add disk space parameters
+if($tempstr ne "")
+{
+    my $mb = parse_memstr($tempstr);
+    push @rselect, "tmp>$mb";
+    push @rusage, "tmp=$mb";
+}
+
+if(scalar(@rselect) > 0)
+{
+    my $select_str = "select[" . join(" && ", @rselect) . "]";
+    my $usage_str = "rusage[" . join(", ", @rusage) . "]";
+    $opt_str .= qq(-R"$select_str $usage_str" $memory_bsub_str);
+}
+
+# Set the submssion queue, if not already set
+if($queue eq "")
+{
+    $queue = "research-rh6";
+}
+
+$opt_str .= " -q $queue";
+
+my $submitter = "bsub";
+
+# Read the actual command, either from ARGV or STDIN
+if(scalar(@ARGV) > 0)
+{
+    # Single-job mode
+    my $job = join(" ", @ARGV);
+    run($job);
+}
+else
+{
+    # Batch submission mode
+    while(my $job = <>)
+    {
+        chomp $job;
+        run($job);       
+    }
+}
+
+# Run the actual submission command
+sub run
+{
+    my($job) = @_;
+    my $cmd = qq($submitter $opt_str "$job");
+    print "submitting: $cmd\n";
+    system("$cmd") if !$dryRun;
+}
+
+# Parse a memory string in the form 1G, 1M, 1K into the number
+# of megabytes and kilobytes requested
+sub parse_memstr
+{
+	my($s) = @_;
+
+	my ($v, $tok) = ($s =~ /(\d+)(.*)/);
+	my $bytes = 0;
+	if($tok eq "G")
+	{
+		$bytes = $v * 1000*1000*1000;
+	}
+	elsif($tok eq "M")
+	{
+		$bytes = $v * 1000*1000;
+	}
+	elsif($tok eq "K")
+	{
+		$bytes = $v * 1000;
+	}
+	else
+	{
+		die("Unrecognized memory string: $s");
+	}
+	
+	my $mb = $bytes / (1000*1000);
+	return $mb;
+#	my $kb = $bytes / 1000;
+#	return ($mb, $kb);
+}
+
+
