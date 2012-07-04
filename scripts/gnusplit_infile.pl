@@ -45,7 +45,7 @@ use Getopt::Long;
 use File::Basename;
 use FileHandle;
 
-my ($inputfile,$lines,$hashed,$split_exe);
+my ($inputfile,$lines,$hashed,$split_exe,$prefix);
 
 $split_exe = "~/pinball/coreutils/bin/split";
 
@@ -54,14 +54,14 @@ GetOptions(
            'i|input|inputfile:s' => \$inputfile,
            'l|lines:s' => \$lines,
            'hashed' => \$hashed,
+#           'prefix:s' => \$prefix,
           );
 
-my ($basename,$path,$type) = fileparse($inputfile);
-
+my ($basename,$path,$type) = fileparse($inputfile,qr/\.[^.]*/);
+$DB::single=1;1;
 my $linesperfile = $lines || 1000;
 print "Splitting into $linesperfile lines per file...\n";
-my $prefix = '';
-unless ($hashed) { $prefix = $inputfile };
+$prefix = $basename;
 my $command = "stdbuf -o0 $split_exe --verbose -d -u -a 10 -l $linesperfile $inputfile $prefix";
 print STDERR "# $command\n";
 my $infh;
@@ -69,22 +69,18 @@ STDOUT->autoflush(1);
 open($infh, "$command |") || die $!;
 my $filenum = sprintf("%06d", 0);
 my $final_dir;
-my $previous_file = undef;
 while (<$infh>) {
   chomp $_;
-  $_ =~ /creating file \`(\w+)\'/;
+  $_ =~ /creating file \`(\S+)\'/;
   print STDERR "# $_\n";
   my $this_file = $1;
-  # if (!defined($previous_file)) {
-  #   $previous_file = $this_file;
-  #   next;
-  # }
   $DB::single=1;1;
+  my $outdir = '.';
   if ($hashed) {
     $filenum = sprintf("%06d", $filenum);
     $filenum =~ /(\d{2})(\d{2})(\d{2})/; #
     my $dir1 = $1; my $dir2 = $2; my $dir3 = $3;
-    my $outdir = "$path/$dir1/$dir2/$dir3";
+    $outdir = "$path/$dir1/$dir2/$dir3";
     $final_dir = "$dir1:$dir2:$dir3";
     $outdir =~ s/\/\//\//g;
     unless (-d $outdir) {
@@ -95,17 +91,15 @@ while (<$infh>) {
       } else {
         File::Path::mkpath($outdir);
       }
+      $filenum++;
     }
-    $DB::single=1;1;
-    my $outfile = "$outdir/$basename";
-    my $cmd = "mv -f $this_file $outdir/$basename";
-#    my $cmd = "mv -f $previous_file $outdir/$basename";
-    print STDERR "# $cmd\n";
-    unless(system("$cmd") == 0) {die "couldnt mv $outfile\n\# $cmd \n\# $!\n";}
-    $filenum++;
-    $previous_file = $this_file;
   }
+  $DB::single=1;1;
+  my $cmd = "mv -f $this_file $outdir/$this_file"."$type";
+  print STDERR "# $cmd\n";
+  unless(system("$cmd") == 0) {die "couldnt mv file\n\# $cmd \n\# $!\n";}
 }
+
 
 print "finaldir=$final_dir\n";
 print "Done.\n";
