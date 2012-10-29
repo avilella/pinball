@@ -36,6 +36,7 @@ sub fetch_input {
     $self->{starttime} = time();
     print STDERR "[init] ",time()-$self->{starttime}," secs...\n" if ($self->debug);
 
+    $self->{start_dir} = getcwd;
     my $tag_filter = $self->param('tag_filter') || die "'tag_filter' is an obligatory parameter";
 
 }
@@ -72,7 +73,7 @@ sub run {
     if (!defined $work_dir) {
       $work_dir = $path;
     }
-    chdir($work_dir);
+    chdir($work_dir) if (defined ($self->{start_dir}));
 
     # my $verbose_flag = '-v'; $verbose_flag = '-v' if ($self->debug);
     # sga cluster
@@ -91,6 +92,9 @@ sub run {
     } else {
       $self->throw("error running sga cluster\n $cmd\n #$clustersfile\n $!\n");
     }
+
+    chdir($self->{start_dir});
+    return 0;
 }
 
 =head2 write_output
@@ -99,7 +103,32 @@ sub run {
 
 =cut
 
-sub write_output {  # nothing to write out, but some dataflow to perform:
+sub write_output {
+    my $self = shift @_;
+
+    my $work_dir     = $self->param('work_dir');
+    my $tag          = $self->param('tag');
+    my $clustersfile = $self->param('clustersfile');
+
+    my @output_ids;
+    push @output_ids, { 'clustersfile' => $clustersfile, 'work_dir' => $work_dir, 'tag' => $tag };
+    $self->param('output_ids', \@output_ids);
+    my $output_ids = $self->param('output_ids');
+
+    my $job_ids = $self->dataflow_output_id($output_ids, 2);
+    print join("\n",@$job_ids), "\n" if ($self->debug);
+
+    $self->warning(scalar(@$output_ids).' job(s) created');     # warning messages get recorded into 'job_message' table
+
+    ## then flow into the branch#1 funnel; input_id would flow into branch#1 by default anyway, but we request it here explicitly:
+    # $self->dataflow_output_id($self->input_id, 1);
+}
+
+########################################
+# We had all this in the Cluster analysis, now we do sga cluster here,
+# and write the clusters out in the next analysis
+
+sub old_write_output {  # nothing to write out, but some dataflow to perform:
     my $self = shift @_;
 
     my $minclustersize = $self->param('minclustersize') || $self->param('csize');
@@ -110,6 +139,7 @@ sub write_output {  # nothing to write out, but some dataflow to perform:
     # Num of clusters per hashed dir
     $self->{sizedir} = 200;
 
+    chdir($work_dir) if (defined ($self->{start_dir}));
     my $clustersfile = $self->param('clustersfile');
 
     my $clusterfile_topup    = $self->param('clusterfile_topup');
@@ -151,27 +181,6 @@ sub write_output {  # nothing to write out, but some dataflow to perform:
     print join("\n",@$job_ids), "\n" if ($self->debug);
 
     $self->warning(scalar(@$output_ids).' jobs have been created');
-}
-
-sub write_output {
-    my $self = shift @_;
-
-    my $work_dir     = $self->param('work_dir');
-    my $tag          = $self->param('tag');
-    my $clustersfile = $self->param('clustersfile');
-
-    my @output_ids;
-    push @output_ids, { 'clustersfile' => $clustersfile, 'work_dir' => $work_dir, 'tag' => $tag };
-    $self->param('output_ids', \@output_ids);
-    my $output_ids = $self->param('output_ids');
-
-    my $job_ids = $self->dataflow_output_id($output_ids, 2);
-    print join("\n",@$job_ids), "\n" if ($self->debug);
-
-    $self->warning(scalar(@$output_ids).' job(s) created');     # warning messages get recorded into 'job_message' table
-
-    ## then flow into the branch#1 funnel; input_id would flow into branch#1 by default anyway, but we request it here explicitly:
-    # $self->dataflow_output_id($self->input_id, 1);
 }
 
 

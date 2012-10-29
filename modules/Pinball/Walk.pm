@@ -36,6 +36,8 @@ sub fetch_input {
     $self->{starttime} = time();
     print STDERR "[init] ",time()-$self->{starttime}," secs...\n" if ($self->debug);
 
+    $self->{start_dir} = getcwd;
+
     my $clst    = $self->param('clst');
     my $clstext = $self->param('clstext');
     die "'clst' or 'clstext' are obligatory parameters, please set one of them in the input_id hashref"
@@ -60,7 +62,7 @@ sub run {
 
     my $worker_temp_directory = $self->worker_temp_directory;
     print STDERR "# $worker_temp_directory\n" if ($self->debug);
-    chdir($worker_temp_directory);
+    chdir($worker_temp_directory) if (defined ($self->{start_dir}));
 
     my $tag            = $self->param('tag');
     my $dust           = $self->param('dust');
@@ -199,6 +201,10 @@ sub run {
     # } else {
     #   $self->throw("error running sga walk\n $cmd\n #$wdescfile\n $!\n");
     # }
+
+    chdir($self->{start_dir});
+
+    return 0;
 }
 
 =head2 write_output
