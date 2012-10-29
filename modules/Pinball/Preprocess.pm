@@ -36,6 +36,7 @@ sub fetch_input {
     $self->{starttime} = time();
     print STDERR "[init] ",time()-$self->{starttime}," secs...\n" if ($self->debug);
 
+    $self->{start_dir} = getcwd;
     my $seq = $self->param('seq')  || die "'seq' is an obligatory parameter";
 
 }
