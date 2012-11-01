@@ -76,7 +76,7 @@ sub run {
     my $erate          = $self->param('erate');
     my $minreadlen     = $self->param('minreadlen');
     my $walkslimit     = $self->param('walkslimit') || 100;
-    my $longest_n      = $self->param('longest_n') || 20;
+    my $longest_n      = $self->param('longest_n') || 1;
     my $sga_executable = $self->param('sga_executable');
     my $sample         = $self->param('sample');
     my $work_dir       = $self->param('work_dir');
