@@ -1,11 +1,6 @@
 ##  These are the installation instructions for the pinball pipeline.
-
-##  If you are running this on the pinball Virtual Machine, the
-##  installation should already be done for you, so you can skip until
-##  the INSTALLATION READY section.
-
 ##  For questions/comments, email avilella@gmail.com
-  
+##  
 ##  Requirements
 ##   => a 64bit modern linux computer (or compute farm, tested on 2.6.18+ debian/ubuntu)
 ##   => a modern version of perl (tested on 5.8+)
@@ -20,7 +15,7 @@
 ##  
 ##  # NOTE: All instructions tested on bash terminal
 ##  
-##  # Do a tar xzf of the pinball package on your home directory:
+##  # Do a tar xzf or the pinball package on your home directory:
 ##  cd ~
 ##  tar xzf pinball.tar.gz
 ##  cd ~/pinball
@@ -28,22 +23,10 @@
 ##  The pinball package contains some other programs and scripts that are not integrated in the pipeline but are just added for convenience in development and helping users analyse their data in different ways.
 
 ########################################
-# ENSEMBL-HIVE
-
-# Although a simplified version of the Pinball pipeline is available
-# in the pinball/scripts folder, the full version runs via
-# ensembl-hive (eHive). This implements all the needed functionality
-# for job control system of the pipeline.  It is not bound to any
-# processing 'farm' system and can be run in a normal workstation
-# computer or a GRID system.
-
-
-########################################
 # USING SQLITE
 
-# If you don't have a mysql server installed, you can run Pinball
-# using ensembl-hive's sqlite3 implementation. To install sqlite, and
-# its DBD perl modules in your system:
+# If you don't have a mysql server installed, you can use ensembl-hive
+# with sqlite3. To install sqlite, and its DBD perl modules:
 
 # On a Debian-based machine:
 sudo apt-get install build-essential sqlite3 libsqlite3-dev perl-doc
@@ -56,34 +39,21 @@ mkdir ~/pinball/sqlite
 find ~/pinball/sqlite -name DBD.pm
 /home/user/pinball/sqlite/lib/perl5/i686-linux-gnu-thread-multi/DBI/DBD.pm
 
-########################################
-# SETTING up PERL5LIB and PATH
-
-# Add that directory (up to where DBI/DBD.pm starts) to the PERL5LIB as shown below:
+# Add that directory to the PERL5LIB as shown below:
 PERL_SQLITE_MODULES_HERE=$HOME/pinball/sqlite/lib/perl5/i686-linux-gnu-thread-multi/
 
-# Then export the necessary modules into the PERL5LIB environment variable like shown below:
 echo PINBALLPERL5LIB && export PERL5LIB=$HOME/pinball/modules:$HOME/pinball/ensembl_main/ensembl/modules:$HOME/pinball/ensembl_main/ensembl-hive/modules:$HOME/pinball/ensembl_main/ensembl-compara/modules:$HOME/pinball/bioperl-1.2.3:$HOME/pinball/BioPerl-1.6.1:$PERL_SQLITE_MODULES_HERE
 
-# Set up the PATH so that eHive's beekeeper.pl and runWorker.pl are found:
+# Set up the PATH
 echo PINBALLPATH && export PATH=$PATH:$HOME/pinball/ensembl_main/ensembl-hive/scripts
 
-# You should now be able to see the documentation for DBD::SQLite, ensembl-hive modules
-# and run the beekeeper.pl script ('q' to quit man page):
+# You should now be able to see the DBD::SQLite, ensembl-hive modules
+# and beekeeper.pl script (q to quit):
 perldoc Bio::EnsEMBL::Hive::Worker
 perldoc DBD::SQLite
 beekeeper.pl
 
-########################################
-# CHECKING BINARIES
-
 # Check that the provided sga and bwa binaries run correctly in your 64bit computer:
-# For sga, try:
-export LD_LIBRARY_PATH=$HOME/pinball/sga/bamtools/lib
-~/pinball/sga/src/sga
-
-# To recompile sga, follow instructions here: https://raw.github.com/jts/sga/master/src/README
-
 # For bwa, try:
 ~/pinball/bwa/bwa index
 
@@ -93,29 +63,25 @@ cd ~/pinball/bwa/
 make clean; make
 cd ~/pinball
 
-########################################
-# INSTALLATION READY: installation should be READY from here onwards.
-########################################
+# For sga, try:
+export LD_LIBRARY_PATH=$HOME/pinball/sga/bamtools/lib
+~/pinball/sga/src/sga
+
+# To recompile sga, follow instructions here: https://raw.github.com/jts/sga/master/src/README
 
 ########################################
 # EXAMPLE INPUT FILES:
 
-# For some example fastq files, you can download these small datasets that will allow you to test the
-# installation in just a few minutes:
-# Create a separate directory where your data will reside:
-mkdir -p ~/somewhere/with/disk/space
-cd ~/somewhere/with/disk/space
-# This is a 1% random read sampling of an example encode dataset:
+# For some example fastq files, you can download these small datasets:
+mkdir -p ~/pinball/somewhere/with/disk/space
+cd ~/pinball/somewhere/with/disk/space
 wget ftp://ftp.ebi.ac.uk/pub/databases/ensembl/avilella/pinball_example_data/example.encode.1pc.fastq.gz
-# This is a 0.1% random read sampling of an example encode dataset:
 wget ftp://ftp.ebi.ac.uk/pub/databases/ensembl/avilella/pinball_example_data/example.encode.1pm.fastq.gz
 cd ~/pinball
 
 ########################################
 # EXAMPLE REFERENCE:
-cd ~/somewhere/with/disk/space
-# This is an example small reference fasta file containing only human chromosome chr22 (v37 g1k website) 
-# that will allow you to test the searching/mapping part of the pipeline in just a few minutes:
+cd ~/pinball/somewhere/with/disk/space
 wget ftp://ftp.ebi.ac.uk/pub/databases/ensembl/avilella/pinball_example_data/human_g1k_v37_chr22.fasta.gz
 ~/pinball/bwa/bwa index human_g1k_v37_chr22.fasta.gz
 cd ~/pinball
@@ -124,19 +90,15 @@ cd ~/pinball
 ########################################
 # INITIALIZE THE DATABASE:
 
-# Give a name to this project using 'dbname':
+# For the example data:
 dbname=my_example_encode
-# For the datasets in this project, give them a tag name using 'tag':
 tag=example_encode.1pc.1pm
-
-# Run the initialization script like this (see below for an explanation of the different options):
-
-perl ~/pinball/ensembl_main/ensembl-hive/scripts/init_pipeline.pl Pinball::PipeConfig::Pinball_conf -ensembl_cvs_root_dir $HOME/pinball/ensembl_main -pipeline_db -dbname=$dbname -hive_driver sqlite -password=foo -pipeline_name pinball -cluster_gigs 2 -cluster_threads 3 -cluster_queue foo -longest_n 1 -work_dir ~/somewhere/with/disk/space/$dbname -seq ~/somewhere/with/disk/space/example.encode.1pc.fastq.gz:~/somewhere/with/disk/space/example.encode.1pm.fastq.gz -tag $tag -reference ~/somewhere/with/disk/space/human_g1k_v37_chr22.fasta.gz
+perl ~/pinball/ensembl_main/ensembl-hive/scripts/init_pipeline.pl Pinball::PipeConfig::Pinball_conf -ensembl_cvs_root_dir $HOME/pinball/ensembl_main -pipeline_db -dbname=$dbname -hive_driver sqlite -password=foo -pipeline_name pinball -cluster_gigs 2 -cluster_procs 3 -cluster_queue foo -longest_n 1 -work_dir ~/pinball/somewhere/with/disk/space -seq ~/pinball/somewhere/with/disk/space/example.encode.1pc.fastq.gz:~/pinball/somewhere/with/disk/space/example.encode.1pm.fastq.gz -tag $tag -reference ~/pinball/somewhere/with/disk/space/human_g1k_v37_chr22.fasta.gz
 
 # For your own data
-dbname=my_whatever_name_I_want_to_give_to_the_project
-tag=my_datasets
-perl ~/pinball/ensembl_main/ensembl-hive/scripts/init_pipeline.pl Pinball::PipeConfig::Pinball_conf -ensembl_cvs_root_dir $HOME/pinball/ensembl_main -pipeline_db -dbname=$dbname -hive_driver sqlite -password=foo -pipeline_name pinball -cluster_gigs 32 -cluster_threads 22 -cluster_queue foo -work_dir /filesystem/somewhere/with/disk/space/$dbname -seq /colon/separated/list/of/fastq/or/fasta/files/compressed/or/not/file1.fa:/another/file2.fq:/and/another/file3.fq.gz -tag $tag -reference /closest/genome/reference/that/has/been/indexed/with/bwa/file.fa
+dbname=my_whatever_name_I_want_to_give_to_the_db
+tag=my_tag
+perl ~/pinball/ensembl_main/ensembl-hive/scripts/init_pipeline.pl Pinball::PipeConfig::Pinball_conf -ensembl_cvs_root_dir $HOME/pinball/ensembl_main -pipeline_db -dbname=$dbname -hive_driver sqlite -password=foo -pipeline_name pinball -cluster_gigs 32 -cluster_procs 22 -cluster_queue foo -work_dir /somewhere/with/disk/space -seq /colon/separated/list/of/fastq/or/fasta/files/compressed/or/not/file1.fa:/another/file2.fq:/and/another/file3.fq.gz -tag $tag -reference /closest/genome/reference/that/has/been/indexed/with/bwa/file.fa
 
 ########################################
 # START THE PINBALL PIPELINE
@@ -145,150 +107,16 @@ perl ~/pinball/ensembl_main/ensembl-hive/scripts/init_pipeline.pl Pinball::PipeC
 cd ~/pinball
 beekeeper.pl -url sqlite:///my_example_encode -sync
 
-# Loop through the process (here using local workstation and 2 cpus,
-# LSF is default, use it if you have access to a compute farm with
-# LSF queueing system):
-
+# Loop through the process (here using local and 2 cpus, LSF is default):
 cd ~/pinball
 beekeeper.pl -url sqlite:///my_example_encode -loop -local -local_cpus 2
 
-This will execute the beekeeper.pl script, that will loop through
-every two minutes (--sleep 2 is default option) and process all the
-different analyses (preprocess, index, cluster, ...).
-
-You will see the reports from beekeeper.pl showing analysis going from
-READY to WORKING to DONE.
-
-# Use Ctrl+C to stop it at any point. You can run beekeeper -sync at
-  any point to synchronize the status of the pipeline:
-
-beekeeper.pl -url sqlite:///my_example_encode -sync
-
-
-########################################
-# PIPELINE INPUT
-
-# The most common input for the Pinball pipeline is Illumina ChIP-seq
-# data from narrow-peaks datasets, like transcription-factor binding
-# proteins or narrow-peak histone modifications like H3K4me3 or
-# H3K27ac. 
-
-# The pipeline has also been shown to work for broad-peak ChIP-seq
-# datasets but, depending on the level of sequence coverage, the
-# reconstructed regions will often be split into multiple fragments.
-
-# Pinball has also been shown to be able to cluster data from Illumina
-# small RNA sequencing datasets. For example, it will be able to find
-# clusters of reads corresponding to miRNAs, although these very short
-# regions won't be easily mappable to reference genomes of distant
-# species.
+# Use Ctrl+C to stop it at any point. You can run beekeeper sync at any point to check the status.
 
 ########################################
 # PIPELINE RESULTS
 
-# The pipeline produces two kind of output files:
+# The pipeline produces reconstructed regions for each clustered set of reads.
+# After all the "walk" jobs have finished, you should be able to compile all the contigs using this command:
+find ~/pinball/somewhere/with/disk/space -name "*.walks" | xargs cat > all.walks.fasta
 
-# 1) Reconstructed regions for each clustered set of reads. From your
-  work_dir, there will be a 'output' directory with a file like:
-
-# output/example_encode.1pc.1pm.clusters.fa
-
-# 2) BAM files for the alignment of the reconstructed regions against
-  reference sequences. If your dataset is from a species with no
-  available assembled genome, you can try to use the reference genome
-  of the species closest to yours.
-
-# output/example_encode.1pc.1pm.human_g1k_v37_chr22.fasta.1000.bam (and *.bam.bai)
-
-########################################
-# Pinball OPTIONS
-
--tag string             Name of the dataset to be analysed, e.g.: GM12864_CTCF
-
--work_dir /file/path    Path to be created where the data will be processed 
-                        and the results stored.
-                        (10 times the size of your fastq files should be enough)
-
--reference /path/file.fasta   Fasta file of the reference sequences to be used
-
--seq file1.fq:file2.fq  List of fasta or fastq input files to be analysed. 
-
-In the '-seq' option, if several files are to be combined in a single
-dataset, the files can be colon-separated (':') like this:
-
-/file/path/file1.fq:/file/path/file2.fq
-
-Compressed files can be used as input (they take less space and will
-be copied elsewhere), e.g.:
-
-/file/path/file1.fq.gz:/file/path/file2.fq.gz
-
-The reads in the files can be 'labelled' using 'at' signs ('@label@')
-so that their origin can be traced back after the clustering
-analysis. This is useful in analysing datasets with multiple
-replicates or in analysing co-occurence for combinations of multiple
-TFs, e.g.:
-
-@TF1_repl1@/file/path/file1.fq.gz:@TF1_repl2@/file/path/file2.fq.gz
-
-@TF1@/file/path/file1.fq.gz:@TF2@/file/path/file2.fq.gz
-
-########################################
-# sga related options:
-
--minreadlen NUM      sga preprocess: discard sequences that are shorter than NUM (default: 34)
-                     
--overlap NUM         sga: minimum overlap required between two reads (default: 25)
-                     
--csize NUM           sga cluster: minimum number of reads for each cluster (default: 10)
-
--minclustersize NUM  minimum number of reads for each cluster to be parsed after clustering (default: 10)
-
--maxclustersize NUM  maxinum number of reads for each cluster to be parsed after clustering (default: 100000)
-
--dust FLOAT       sga preprocess: filter out low-complexity reads that have a dust score higher
-                  than FLOAT (default: 1.0)
-
--longest_n NUM    only output the longest NUM of walks per cluster (default: 1)
-
--erate NUM        sga: maximum error rate allowed to consider two sequences aligned (default: 0)
-
--disk NUM         sga index: Batches of NUM reads to be used at a time (default 1000000)
-
--phred64 1/0      sga preprocess: convert the input quality values from phred-64 to phred-33.
-
--sample FLOAT     sga preprocess: Randomly sample reads or pairs with acceptance probability FLOAT.
-
-########################################
-# Other options:
-
--sga_executable /full/path/sga      Path to alternative sga executable (default: $HOME/pinball/sga/src/sga)
-
--search_executable /f/path/bwa      Path to alternative bwa executable (default: $HOME/pinball/bwa/bwa)
-
--samtools_executable /f/p/samtools  Path to alternative samtools executable 
-                                    (default: $HOME/pinball/samtools/samtools)
-
-########################################
-# Resource management options:
-
-# Workstation: if you are running pinball locally on a workstation,
-# the resources are limited to the amount of memory and cpus in the
-# system. If you see memory errors during the indexing or clustering
-# steps, it's because your datasets are too big to be analysed with
-# your hardware.
-
-# Farm: If you are running the pipeline on a cpu farm with a queueing
-# system, you can define how much memory and cpus you want to allocate
-# for the clustering step of the pipeline using the following options
-
--cluster_gigs    N     Number of GBs to allocate for clustering step
--cluster_threads N     Number of CPU processor threads to be used by the clustering step
--cluster_queue string  Name of the LSF queue to be used by the clustering step
--email email@addre.ss  Email of the user of the pipeline in the cpu farm
-
--timelimit MIN         If the package 'timelimit' is installed in your Linux system, 
-                       you can use this option to limit the number of MINutes to be spend 
-                       trying to calculate the walks for each cluster of reads. This can
-                       speed up the walk analysis in case some of the clusters contain a 
-                       large number of reads (default: <NULL>).
