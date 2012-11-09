@@ -63,7 +63,7 @@ sub default_options {
         'dust'                 => 1,
         'bwa_z'                => 1000,
         'allhits'              => 0,
-        'longest_n'            => 20,
+        'longest_n'            => 1,
         'sga_executable'       => $ENV{'HOME'}.'/pinball/sga/src/sga',
         'search_executable'    => $ENV{'HOME'}.'/pinball/bwa/bwa',
         'samtools_executable'  => $ENV{'HOME'}.'/pinball/samtools/samtools',
