@@ -91,11 +91,17 @@ export LD_LIBRARY_PATH=$HOME/pinball/sga/bamtools/lib
 # For bwa, try:
 ~/pinball/bwa/bwa index
 
-# To recompile bwa:
+# To recompile 'bwa':
 sudo apt-get install zlib1g-dev
 cd ~/pinball/bwa/
 make clean; make
 cd ~/pinball
+
+# To recompile 'timelimit':
+cd ~/pinball/timelimit
+make clean; make
+cd ~/pinball
+
 
 ########################################
 # INSTALLATION READY: installation should be READY from here onwards.
@@ -192,15 +198,34 @@ beekeeper.pl -url sqlite:///my_example_encode -sync
 
 # The pipeline produces two kind of output files:
 
-# 1) Reconstructed regions for each clustered set of reads. From your
-  work_dir, there will be a 'output' directory with a file like:
+# -> Reconstructed regions for each clustered set of reads. From your
+# work_dir, there will be a 'output' directory with a file like:
 
 # output/example_encode.1pc.1pm.clusters.fa
 
-# 2) BAM files for the alignment of the reconstructed regions against
+# This file can be used, for example, for de novo motif discovery.
+
+# -> BAM file for the read pileups for each clustered set of
+#    reads. The shape of each reconstructed region is as given by the
+#    sga walk procedure. For example, a file like:
+
+# output/example_encode.1pc.1pm.clusters.bam (and *.bam.bai)
+
+# If you provided an Input/IgG control file with respect to the sequences:
+# -> BAM file for the alignment of the input reads against the
+  reconstructed regions. For example:
+
+# output/example_encode.1pc.1pm.control.bam (and *.bam.bai)
+
+# The *.clusters.bam file and the *.control.bam file can be used in
+  combination, for example, to correct for false peaks that are
+  present in the control reads. 
+
+# If you provided a reference against which to align the clusters:
+# -> BAM files for the alignment of the reconstructed regions against
   reference sequences. If your dataset is from a species with no
   available assembled genome, you can try to use the reference genome
-  of the species closest to yours.
+  of the closest species to yours.
 
 # output/example_encode.1pc.1pm.human_g1k_v37_chr22.fasta.1000.bam (and *.bam.bai)
 
@@ -273,6 +298,10 @@ TFs, e.g.:
 -samtools_executable /f/p/samtools  Path to alternative samtools executable 
                                     (default: $HOME/pinball/samtools/samtools)
 
+-timelimit_executable /p/timelimit  Path to alternative timelimit executable 
+                                    (default: $HOME/pinball/timelimit/timelimit)
+
+
 ########################################
 # Resource management options:
 
@@ -291,8 +320,8 @@ TFs, e.g.:
 -cluster_queue string  Name of the LSF queue to be used by the clustering step
 -email email@addre.ss  Email of the user of the pipeline in the cpu farm
 
--timelimit MIN         If the package 'timelimit' is installed in your Linux system, 
+-timelimit MIN         If the package 'timelimit' is available, 
                        you can use this option to limit the number of MINutes to be spend 
                        trying to calculate the walks for each cluster of reads. This can
                        speed up the walk analysis in case some of the clusters contain a 
-                       large number of reads (default: <NULL>).
+                       large number of reads (default: 5).
