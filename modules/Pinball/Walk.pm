@@ -77,6 +77,8 @@ sub run {
     my $minreadlen     = $self->param('minreadlen');
     my $walkslimit     = $self->param('walkslimit') || 100;
     my $longest_n      = $self->param('longest_n') || 1;
+    my $timelimit      = $self->param('timelimit');
+    my $timelimit_executable  = $self->param('timelimit_executable');
     my $sga_executable = $self->param('sga_executable');
     my $sample         = $self->param('sample');
     my $work_dir       = $self->param('work_dir');
@@ -137,8 +139,10 @@ sub run {
       my $ext = "walks"; $ext = "walksext" if ($clst =~ /\.clstext$/);
       $walksfile = $outdir . "$cluster_id.$ext";
       $wdescfile = $outdir . "$cluster_id.$ext.sam";
-      #    $cmd = "$sga_executable walk --prefix=$cluster_id --component-walks -o $walksfile --description-file=$wdescfile $tag.asqg.gz";
-      $cmd = "$sga_executable walk --prefix=$cluster_id --component-walks --longest-n=$longest_n -o $walksfile --sam=$wdescfile $tag.asqg.gz";
+
+      my $timelimit_prefix = '';
+      if (0 < $timelimit) { $timelimit_prefix = "$timelimit_executable -t" . $timelimit; }
+      $cmd = "$timelimit_prefix $sga_executable walk --prefix=$cluster_id --component-walks --longest-n=$longest_n -o $walksfile --sam=$wdescfile $tag.asqg.gz";
       print STDERR "$cmd\n" if ($self->debug);
       $DB::single=1;1;#??
       $self->db->dbc->disconnect_when_inactive(1);
@@ -230,8 +234,11 @@ sub write_output {  # nothing to write out, but some dataflow to perform:
     print "Created jobs ", scalar @output_ids, "\n" if ($self->debug);
     $self->param('output_ids', \@output_ids);
     my $output_ids = $self->param('output_ids');
-    my $job_ids = $self->dataflow_output_id($output_ids, $dataflow);
-    print "# ", join("\n",@$job_ids), "\n" if ($self->debug);
+    my $job_ids;
+    # This is inside an eval in case we dont do 'search' so we dont dataflow into it
+    eval { $job_ids = $self->dataflow_output_id($output_ids, $dataflow);
+           print "# ", join("\n",@$job_ids), "\n" if ($self->debug);
+         };
 
     $self->warning(scalar(@$output_ids).' jobs have been created');     # warning messages get recorded into 'job_message' table
 
