@@ -64,15 +64,17 @@ sub default_options {
         'bwa_z'                => 1000,
         'allhits'              => 0,
         'longest_n'            => 1,
-        'timelimit'            => '',
+        'timelimit'            => 5,
+        'timelimit_executable' => $ENV{'HOME'}.'/pinball/timelimit/timelimit',
         'sga_executable'       => $ENV{'HOME'}.'/pinball/sga/src/sga',
         'search_executable'    => $ENV{'HOME'}.'/pinball/bwa/bwa',
         'samtools_executable'  => $ENV{'HOME'}.'/pinball/samtools/samtools',
-        'reference'            => '/nfs/nobackup/ensembl/avilella/refs/Homo_sapiens.fa',
         'work_dir'             => $ENV{'HOME'}.'/pinball_workdir',
         'phred64'              => 0,
         'tag'                  => '',
         'extendtag'            => '',
+        'control'              => '',
+        'reference'            => '',
         'permute'              => '',
         'sample'               => '',
         'minclustersize'       => '',
@@ -107,6 +109,7 @@ sub pipeline_wide_parameters {  # these parameter values are visible to all anal
             'allhits'           => $self->o('allhits'),
             'longest_n'         => $self->o('longest_n'),
             'timelimit'         => $self->o('timelimit'),
+            'timelimit_executable' => $self->o('timelimit_executable'),
             'sga_executable'    => $self->o('sga_executable'),
             'search_executable' => $self->o('search_executable'),
             'reference'         => $self->o('reference'),
@@ -229,7 +232,7 @@ sub pipeline_analyses {
             -parameters => {},
             -flow_into => {
                 2 => [ 'hashcluster' ],
-                1 => [ 'reportclusters' ],
+                1 => [ 'reportclusters','reportsearch' ],
                -1 => [ 'cluster_highmem2' ],
             },
             -failed_job_tolerance => 100,
@@ -243,7 +246,7 @@ sub pipeline_analyses {
             -parameters => {},
             -flow_into => {
                 2 => [ 'hashcluster' ],
-                1 => [ 'reportclusters' ],
+                1 => [ 'reportclusters','reportsearch' ],
                -1 => [ 'cluster_highmem3' ],
             },
             -failed_job_tolerance => 100,
@@ -257,7 +260,7 @@ sub pipeline_analyses {
             -parameters => {},
             -flow_into => {
                 2 => [ 'hashcluster' ],
-                1 => [ 'reportclusters' ],
+                1 => [ 'reportclusters','reportsearch' ],
             },
             -failed_job_tolerance => 100,
             -hive_capacity => 20,
@@ -270,7 +273,7 @@ sub pipeline_analyses {
             -flow_into => {
                 1 => [ 'walk' ],
             },
-            -hive_capacity => 200,
+            -hive_capacity => 20,
             -failed_job_tolerance => 100,
             # input_id comes from cluster
         },
@@ -290,17 +293,6 @@ sub pipeline_analyses {
             # input_id comes from cluster
         },
 
-        {   -logic_name => 'search',
-            -module     => 'Pinball::Search',
-            -flow_into => {
-                1 => [ 'reportsearch' ],
-            },
-            -hive_capacity => 200,
-            -batch_size => 1,
-            # -batch_size => 20, # Better for farm setups
-            -failed_job_tolerance => 100,
-        },
-
         {   -logic_name => 'reportclusters',
             -module     => 'Pinball::ReportClusters',
             -hive_capacity => $self->o('cpunum'),
@@ -309,14 +301,37 @@ sub pipeline_analyses {
             -wait_for => [ 'walk' ],   # comes from the first analysis
         },
 
-        {   -logic_name => 'reportsearch',
-            -module     => 'Pinball::ReportSearch',
-            -hive_capacity => $self->o('cpunum'),
-            -failed_job_tolerance => 100,
-            -parameters => {},
-            -wait_for => [ 'walk', 'search' ],   # comes from the first analysis
-        },
+        # Search and ReportSearch analyses will only be done if 'reference' is specified
+        ('' ne $self->o('reference') ?
+            {   -logic_name => 'search',
+                -module     => 'Pinball::Search',
+                -hive_capacity => 200,
+                -batch_size => 1,
+                # -batch_size => 20, # Better for farm setups
+                -failed_job_tolerance => 100,
+            }
+        : () ),
+        ('' ne $self->o('reference') ?
+            {   -logic_name => 'reportsearch',
+                -module     => 'Pinball::ReportSearch',
+                -hive_capacity => $self->o('cpunum'),
+                -failed_job_tolerance => 100,
+                -parameters => {},
+                -wait_for => [ 'walk', 'search' ],   # comes from the first analysis
+            }
+        : () ),
 
+        # Control analysis will only be done if 'control' is specified
+        ('' ne $self->o('control') ?
+            {   -logic_name => 'control',
+                -module     => 'Pinball::Control',
+                -input_ids  => [ { 'seq' => $self->o('seq'), 'control' => $self->o('control'), 'tag' => $self->o('tag'), 'work_dir' => $self->o('work_dir') } ],
+                -hive_capacity => $self->o('cpunum'),
+                -failed_job_tolerance => 100,
+                -parameters => {},
+                -wait_for => [ 'reportclusters' ],
+            }
+        : () ),
     ];
 }
 
