@@ -7,11 +7,11 @@ Pinball::ReportClusters
 
 =head1 SYNOPSIS
 
-The ReportClusters module does something.
+The ReportClusters module generates multifasta and BAM files for the collection of reconstructed walks (clusters).
 
 =head1 DESCRIPTION
 
-'Pinball::ReportClusters' is the XXX step of the Pinball pipeline.
+'Pinball::ReportClusters' is the 11th step of the Pinball pipeline.
 
 =cut
 
@@ -54,6 +54,10 @@ sub run {
 
     my $search_dir = "$work_dir/??/??/??/";
 
+    ########################################
+    # First part: generate multifasta for the clusters
+    ########################################
+
     my $cmd;
     my $output_dir = "$work_dir/output/";
     my $ret = mkdir $output_dir;
@@ -73,6 +77,68 @@ sub run {
     } else {
       $self->throw("error running pinball reportclusters\n $cmd\n #$outfile\n $!\n");
     }
+
+    # Here the reference is clusterwalksfa, because we are generating a BAM file of the clusters
+    my ($refinfilebase,$refpath,$reftype) = fileparse($clusterwalksfa,qr/\.[^.]*/);
+
+    ########################################
+    # Second part: generate BAM for the clusters
+    ########################################
+
+    my $samtools_executable = $self->param('samtools_executable') || $ENV{'HOME'}.'/pinball/samtools/samtools';
+    my $search_executable   = $self->param('search_executable') || $ENV{'HOME'}.'/pinball/bwa/bwa';
+    my $sam        = $output_dir . join("\.",$refinfilebase,"sam");
+    my $tmp_bam    = $output_dir . join("\.",$refinfilebase,"tmp","bam");
+    my $prefix_bam = $output_dir . join("\.",$refinfilebase);
+    my $bam        = $output_dir . join("\.",$refinfilebase,"bam");
+
+    # Index clusterwalksfa with samtools faidx
+    $cmd = "$samtools_executable faidx $clusterwalksfa";
+    print STDERR "$cmd\n" if ($self->debug);
+    unless(system("$cmd") == 0) {    print("$cmd\n");    $self->throw("error running pinball reportclusters $!\n");  }
+
+    # Index clusterwalksfa with samtools index
+    $cmd = "$search_executable index $clusterwalksfa";
+    print STDERR "$cmd\n" if ($self->debug);
+    unless(system("$cmd") == 0) {    print("$cmd\n");    $self->throw("error running pinball reportclusters $!\n");  }
+
+    # Add header
+    $cmd = "find $search_dir -name \"cluster-\*.walks.sam\" -exec cat \{\} \\\; | grep \'\@SQ\' > $sam";
+    print STDERR "$cmd\n" if ($self->debug);
+    unless(system("$cmd") == 0) {    print("$cmd\n");    $self->throw("error running pinball reportclusters $!\n");  }
+
+    # Append all sam entries after the header
+    $cmd = "find $search_dir -name \"cluster-\*.walks.sam\" -exec cat \{\} \\\; | grep -v \'\@SQ\' >> $sam";
+    print STDERR "$cmd\n" if ($self->debug);
+    unless(system("$cmd") == 0) {    print("$cmd\n");    $self->throw("error running pinball reportclusters $!\n");  }
+
+    $cmd = "$samtools_executable view -bt $clusterwalksfa.fai $sam > $tmp_bam";
+    print STDERR "$cmd\n" if ($self->debug);
+    unless(system("$cmd") == 0) {    print("$cmd\n");    $self->throw("error running pinball reportsearch $!\n");  }
+
+    $cmd = "$samtools_executable sort $tmp_bam $prefix_bam";
+    print STDERR "$cmd\n" if ($self->debug);
+    unless(system("$cmd") == 0) {    print("$cmd\n");    $self->throw("error running pinball reportclusters $!\n");  }
+
+    $cmd = "$samtools_executable index $bam";
+    print STDERR "$cmd\n" if ($self->debug);
+    unless(system("$cmd") == 0) {    print("$cmd\n");    $self->throw("error running pinball reportclusters $!\n");  }
+
+    $cmd = "rm -f $tmp_bam"; $cmd .= " $sam" unless ($self->debug);
+    print STDERR "$cmd\n" if ($self->debug);
+    unless(system("$cmd") == 0) {    print("$cmd\n");    $self->throw("error running pinball reportclusters $!\n");  }
+
+    print STDERR "# $bam\n" if ($self->debug);
+    print STDERR "Try:\n$samtools_executable view $bam | wc -l\n" if ($self->debug);
+
+    my $outfile = $bam;
+    if (-e $outfile && !-z $outfile) {
+      print STDERR "$outfile\n" if ($self->debug);
+      $self->param('outfile', $outfile);
+    } else {
+      $self->throw("error running pinball reportclusters\n $cmd\n #$outfile\n $!\n");
+    }
+
 
 }
 
