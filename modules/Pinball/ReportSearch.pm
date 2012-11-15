@@ -7,11 +7,11 @@ Pinball::ReportSearch
 
 =head1 SYNOPSIS
 
-The ReportSearch module does something.
+The ReportSearch module generates a BAM file from all the search results from the Search module.
 
 =head1 DESCRIPTION
 
-'Pinball::ReportSearch' is the XXX step of the Pinball pipeline.
+'Pinball::ReportSearch' is the 12th step of the Pinball pipeline.
 
 =cut
 
@@ -36,7 +36,7 @@ sub fetch_input {
     $self->{starttime} = time();
     print STDERR "[init] ",time()-$self->{starttime}," secs...\n" if ($self->debug);
 
-#    $self->{param1} = $self->param('param1')  || die "'param1' is an obligatory parameter";
+    my $reference = $self->param('reference')  || die "'reference' is an obligatory parameter";
 
 }
 
