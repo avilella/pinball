@@ -97,6 +97,9 @@ cd ~/pinball/bwa/
 make clean; make
 cd ~/pinball
 
+# For timelimit, try:
+~/pinball/timelimit/timelimit
+
 # To recompile 'timelimit':
 cd ~/pinball/timelimit
 make clean; make
@@ -143,10 +146,10 @@ tag=example_encode.1pc.1pm
 
 perl ~/pinball/ensembl_main/ensembl-hive/scripts/init_pipeline.pl Pinball::PipeConfig::Pinball_conf -ensembl_cvs_root_dir $HOME/pinball/ensembl_main -pipeline_db -dbname=$dbname -hive_driver sqlite -password=foo -pipeline_name pinball -cluster_gigs 2 -cluster_threads 3 -cluster_queue foo -longest_n 1 -work_dir ~/somewhere/with/disk/space/$dbname -seq ~/somewhere/with/disk/space/example.encode.1pc.fastq.gz:~/somewhere/with/disk/space/example.encode.1pm.fastq.gz -tag $tag -reference ~/somewhere/with/disk/space/human_g1k_v37_chr22.fasta.gz
 
-# For your own data
-dbname=my_whatever_name_I_want_to_give_to_the_project
-tag=my_datasets
-perl ~/pinball/ensembl_main/ensembl-hive/scripts/init_pipeline.pl Pinball::PipeConfig::Pinball_conf -ensembl_cvs_root_dir $HOME/pinball/ensembl_main -pipeline_db -dbname=$dbname -hive_driver sqlite -password=foo -pipeline_name pinball -cluster_gigs 32 -cluster_threads 22 -cluster_queue foo -work_dir /filesystem/somewhere/with/disk/space/$dbname -seq /colon/separated/list/of/fastq/or/fasta/files/compressed/or/not/file1.fa:/another/file2.fq:/and/another/file3.fq.gz -tag $tag -reference /closest/genome/reference/that/has/been/indexed/with/bwa/file.fa
+# For another dataset, it would look something like:
+# dbname=my_whatever_name_I_want_to_give_to_the_project
+# tag=my_datasets
+# perl ~/pinball/ensembl_main/ensembl-hive/scripts/init_pipeline.pl Pinball::PipeConfig::Pinball_conf -ensembl_cvs_root_dir $HOME/pinball/ensembl_main -pipeline_db -dbname=$dbname -hive_driver sqlite -password=foo -pipeline_name pinball -cluster_gigs 32 -cluster_threads 22 -cluster_queue foo -work_dir /filesystem/somewhere/with/disk/space/$dbname -seq /colon/separated/list/of/fastq/or/fasta/files/compressed/or/not/file1.fa:/another/file2.fq:/and/another/file3.fq.gz -tag $tag -reference /closest/genome/reference/that/has/been/indexed/with/bwa/file.fa
 
 ########################################
 # START THE PINBALL PIPELINE
@@ -281,6 +284,11 @@ TFs, e.g.:
 -longest_n NUM    only output the longest NUM of walks per cluster (default: 1)
 
 -erate NUM        sga: maximum error rate allowed to consider two sequences aligned (default: 0)
+
+-rmdupfiltering   sga: use 'sga rmdup' instead of 'sga filter' in the indexing step. 
+                  Rmdup is a more stringent filtering that gets rid of duplicate reads 
+                  even for non-identical that would still appear the same when using a
+                  non-zero error-rate. If option is NULL, 'sga filter' is used  (default: null)
 
 -disk NUM         sga index: Batches of NUM reads to be used at a time (default 1000000)
 
