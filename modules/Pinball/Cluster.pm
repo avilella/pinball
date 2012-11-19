@@ -157,14 +157,12 @@ sub old_write_output {  # nothing to write out, but some dataflow to perform:
       $cluster_id =~ s/\:/\./g;
       if ($cluster_id ne $last_cluster_id) {
         $last_cluster_id = $cluster_id;
-        if (defined @seq_list) {
-          if (scalar @seq_list < $maxclustersize && $minclustersize < scalar @seq_list) {
+        if (scalar @seq_list < $maxclustersize && $minclustersize < scalar @seq_list) {
 
-            my $outfile = $self->create_outdir($last_cluster_id, $work_dir);
-            open OUT, ">$outfile" or die $!; print OUT join('',@seq_list); close OUT;
-            print STDERR "[ $readsnum - $last_cluster_id - $outfile - $diff secs...]\n" if ($self->debug);
-            push @output_ids, { 'clst' => $outfile, 'work_dir' => $work_dir, 'tag' => $tag };
-          }
+          my $outfile = $self->create_outdir($last_cluster_id, $work_dir);
+          open OUT, ">$outfile" or die $!; print OUT join('',@seq_list); close OUT;
+          print STDERR "[ $readsnum - $last_cluster_id - $outfile - $diff secs...]\n" if ($self->debug);
+          push @output_ids, { 'clst' => $outfile, 'work_dir' => $work_dir, 'tag' => $tag };
         }
         @seq_list = undef;
       }
