@@ -3,7 +3,7 @@ use Getopt::Long;
 use strict;
 use File::Basename;
 
-my ($readsfile,$phred64,$no_permute,$dust,$sample,$readsfile,$indexfilteronly,$onlyindex,$minreadlen,$tag,$exhaustive_overlap,$overlap,$csize,$threads,$debug,$paired);
+my ($readsfile,$phred64,$no_permute,$dust,$sample,$readsfile,$indexfilteronly,$onlyindex,$minreadlen,$tag,$exhaustive_overlap,$overlap,$csize,$threads,$debug,$paired,$rmdupfiltering);
 my $disk = 1000000;
 $threads = 1;
 $overlap = 31;
@@ -11,7 +11,8 @@ $csize = 50;
 my $erate = 0;
 $minreadlen = 30;
 
-my $sga_executable      = "/homes/avilella/src/sga/latest/sga/src/sga";
+my $sga_executable = $ENV{'HOME'}.'/pinball/sga/src/sga';
+
 GetOptions(
 	   'r|reads|readsfile:s' => \$readsfile,
 	   't|tag:s' => \$tag,
@@ -30,6 +31,7 @@ GetOptions(
            'd|debug:s' => \$debug,
            'onlyindex:s' => \$onlyindex,
            'indexfilteronly:s' => \$indexfilteronly,
+           'rmdup' => \$rmdupfiltering,
 	   'sga_exe:s' => \$sga_executable,
           );
 
@@ -71,12 +73,15 @@ unless(system("$cmd") == 0) {    print("$cmd\n");    throw("error running sga in
 
 exit 0 if ($onlyindex);
 
-# sga rmdup
-#$cmd = "$sga_executable rmdup -e $erate -t $threads";
+# sga filter/rmdup
 $cmd = "$sga_executable filter --no-kmer-check -t $threads $tag.fq";
+if (defined $rmdupfiltering) {
+  print STDERR "# Using 'sga rmdup' instead of 'sga filter no-kmer-check'\n" if ($debug);
+  $cmd = "$sga_executable rmdup -e $erate -t $threads -p $tag -o $tag.filter.pass.fa $tag.fq";
+}
 print STDERR "$cmd\n" if ($debug);
 $rerun_string .= "$cmd\n";
-unless(system("$cmd") == 0) {    print("$cmd\n");    throw("error running sga filter: $!\n");  }
+unless(system("$cmd") == 0) {    print("$cmd\n");    throw("error running sga filter/rmdup: $!\n");  }
 
 exit 0 if ($indexfilteronly);
 
