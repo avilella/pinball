@@ -62,6 +62,7 @@ sub run {
     my $gigs           = $self->param('cluster_gigs') || 4;
     my $disk           = $self->param('disk') || 1000000;
     my $overlap        = $self->param('overlap');
+    my $rmdupfiltering = $self->param('rmdupfiltering');
 
     my $fq = $tag_fq;
     if (!defined $tag_fq) {
@@ -85,7 +86,6 @@ sub run {
     #   print STDERR "# gigs $gigs $disk $disk\n" if ($self->debug);
     # }
 
-    #    my $erate          = $self->param('erate');
     # $erate = 0.1 if (defined $tag_fq_base);
     my $sga_executable = $self->param('sga_executable');
 
@@ -120,8 +120,17 @@ sub run {
     unless(system("$cmd") == 0) {    print("$cmd\n");    $self->warn("trying to clean from sga filter.pass $!\n");  }
     print STDERR "[filter.pass cleanup] ",time()-$self->{starttime}," secs...\n" if ($self->debug);
 
-    # sga filter
+    # sga filter/rmdup
     $cmd = "$sga_executable filter --no-kmer-check -t $threads $fq";
+
+    # Rmdup is a more stringent filtering that gets rid of duplicate
+    # reads, including non-identical reads that would still appear the
+    # same when using an error-rate > 0
+    if ('' ne $rmdupfiltering) {
+      my $erate          = $self->param('erate');
+      print STDERR "# Using 'sga rmdup' instead of 'sga filter no-kmer-check'\n" if ($self->debug);
+        $cmd = "$sga_executable rmdup -e $erate -t $threads -p $tag -o $tag_filter $fq";
+    }
     print STDERR "$cmd\n" if ($self->debug);
     $DB::single=1;1;
     $self->db->dbc->disconnect_when_inactive(1);
