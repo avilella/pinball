@@ -61,7 +61,7 @@ sub default_options {
         'erate'                => 0,
         'minreadlen'           => 34,
         'dust'                 => 1,
-        'rmdupfiltering'       => 1,
+        'rmdupfiltering'       => '',
         'bwa_z'                => 1000,
         'allhits'              => 0,
         'longest_n'            => 1,
