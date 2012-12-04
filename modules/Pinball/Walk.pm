@@ -149,7 +149,7 @@ sub run {
       $DB::single=1;1;#??
       $self->db->dbc->disconnect_when_inactive(1);
       my $ret = system("$cmd");
-      unless ($ret == 0) {    print("$cmd\n");    print STDERR "error running sga walk $!\n";  }
+      unless ($ret == 0) {    print("$cmd\n") if ($self->debug);    print STDERR "error running sga walk $!\n" if ($self->debug);  }
       $self->db->dbc->disconnect_when_inactive(0);
 
       # Preprocess to analyze walks
@@ -191,7 +191,7 @@ sub run {
       if (1 == $do_simplified_assembly) {
 #        my $debugging_cmd = "zcat $tag.asqg.gz | /homes/avilella/src/sga/sgatools/asqg2dot.pl > $tag.dot && dot -Tgif < $tag.dot > $walksfile.gif";
         my $debugging_cmd = "$sga_executable assemble --bubble=0 --cut-terminal=0 --min-branch-length=0 $tag.asqg.gz -o $walksfile $quiet_out $quiet_err";
-        print STDERR "# $debugging_cmd\n";
+        print STDERR "# $debugging_cmd\n" if ($self->debug);
         system($debugging_cmd);
         $internal_overlap_value++;
       }
