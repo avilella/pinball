@@ -96,6 +96,8 @@ sub run {
     my $sample_threshold  = '';
     my $phred64_flag      = '';
     my $permute_ambiguous = '';
+    my $quiet_out = '1>/dev/null'; $quiet_out = '' if ($self->debug);
+    my $quiet_err = '2>/dev/null'; $quiet_err = '' if ($self->debug);
     $dust_threshold       = "--dust-threshold=" . $dust if (length $dust > 0);
     # $sample_threshold     = "--sample=" . $sample if (length $sample > 0);
     # phred64 already comes converted from cluster preprocess
@@ -104,7 +106,7 @@ sub run {
 
     # sga preprocess
     my $preprocess_log = "$tag.sga.preprocess.log";
-    $cmd = "$sga_executable preprocess $sample_threshold $phred64_flag --min-length=$minreadlen $dust_threshold $permute_ambiguous $readsfile -o $tag.fq 2>$preprocess_log";
+    $cmd = "$sga_executable preprocess $sample_threshold $phred64_flag --min-length=$minreadlen $dust_threshold $permute_ambiguous $readsfile -o $tag.fq $quiet_out 2>$preprocess_log";
     print STDERR "$cmd\n" if ($self->debug);
     $DB::single=1;1;
     unless(system("$cmd") == 0) {    print("$cmd\n");    $self->throw("error running sga preprocess $!\n");  }
@@ -112,12 +114,12 @@ sub run {
     # sga index
     # this will take about 500MB of memory
     my $disk_option = ''; $disk_option = "--disk=$disk" if (length($disk)>0);
-    $cmd = "$sga_executable index -t 1 $disk_option $tag.fq";
+    $cmd = "$sga_executable index -t 1 $disk_option $tag.fq $quiet_out $quiet_err";
     print STDERR "$cmd\n" if ($self->debug);
     unless(system("$cmd") == 0) {    print("$cmd\n");    $self->throw("error running sga index $!\n");  }
 
     # sga filter
-    $cmd = "$sga_executable filter --no-kmer-check -t 1 $tag.fq";
+    $cmd = "$sga_executable filter --no-kmer-check -t 1 $tag.fq $quiet_out $quiet_err";
     print STDERR "$cmd\n" if ($self->debug);
     $DB::single=1;1;
     unless(system("$cmd") == 0) {    print("$cmd\n");    $self->throw("error running sga filter: $!\n");  }
@@ -129,7 +131,7 @@ sub run {
     while (0 == $walk_output) {
       print STDERR "# internal_overlap_value=$internal_overlap_value\n" if ($self->debug);
       # sga overlap
-      $cmd = "$sga_executable overlap -m $internal_overlap_value -t 1 --exhaustive -e $erate $tag.filter.pass.fa -o $tag.asqg.gz";
+      $cmd = "$sga_executable overlap -m $internal_overlap_value -t 1 --exhaustive -e $erate $tag.filter.pass.fa -o $tag.asqg.gz $quiet_out $quiet_err";
       $DB::single=1;1;
       print STDERR "$cmd\n" if ($self->debug);
       unless(system("$cmd") == 0) {    print("$cmd\n");    $self->throw("error running sga overlap $!\n");  }
@@ -142,7 +144,7 @@ sub run {
 
       my $timelimit_prefix = '';
       if (0 < $timelimit) { $timelimit_prefix = "$timelimit_executable -t" . $timelimit; }
-      $cmd = "$timelimit_prefix $sga_executable walk --prefix=$cluster_id --component-walks --longest-n=$longest_n -o $walksfile --sam=$wdescfile $tag.asqg.gz";
+      $cmd = "$timelimit_prefix $sga_executable walk --prefix=$cluster_id --component-walks --longest-n=$longest_n -o $walksfile --sam=$wdescfile $tag.asqg.gz $quiet_out $quiet_err";
       print STDERR "$cmd\n" if ($self->debug);
       $DB::single=1;1;#??
       $self->db->dbc->disconnect_when_inactive(1);
@@ -153,7 +155,7 @@ sub run {
       # Preprocess to analyze walks
       my $temp_id  = $self->worker->process_id; $temp_id =~ s/\[\d+\]//; $temp_id .= int(rand(10000));
       my $dust_walks_log = $worker_temp_directory . $temp_id . ".preprocess.walks.log";
-      $cmd = "$sga_executable preprocess $walksfile 1> /dev/null 2>$dust_walks_log";
+      $cmd = "$sga_executable preprocess $walksfile $quiet_out 2>$dust_walks_log";
       print STDERR "$cmd\n" if ($self->debug);
       if(system("$cmd") != 0) {    print("$cmd\n");    $self->throw("error running pinball preprocess walks $!\n");  }
       my $numwalks = 1; my $perc_walks = 1; my $numbases = 100; my $perc_bases = 1;
@@ -184,7 +186,7 @@ sub run {
 
       if (1 == $do_simplified_assembly) {
 #        my $debugging_cmd = "zcat $tag.asqg.gz | /homes/avilella/src/sga/sgatools/asqg2dot.pl > $tag.dot && dot -Tgif < $tag.dot > $walksfile.gif";
-        my $debugging_cmd = "$sga_executable assemble --bubble=0 --cut-terminal=0 --min-branch-length=0 $tag.asqg.gz -o $walksfile";
+        my $debugging_cmd = "$sga_executable assemble --bubble=0 --cut-terminal=0 --min-branch-length=0 $tag.asqg.gz -o $walksfile $quiet_out $quiet_err";
         print STDERR "# $debugging_cmd\n";
         system($debugging_cmd);
         $internal_overlap_value++;
