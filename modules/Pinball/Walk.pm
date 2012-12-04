@@ -105,8 +105,8 @@ sub run {
     $permute_ambiguous    = "--permute-ambiguous" unless ($no_permute);
 
     # sga preprocess
-    my $preprocess_log = "$tag.sga.preprocess.log";
-    $cmd = "$sga_executable preprocess $sample_threshold $phred64_flag --min-length=$minreadlen $dust_threshold $permute_ambiguous $readsfile -o $tag.fq $quiet_out 2>$preprocess_log";
+    my $preprocess_log = '2>/dev/null'; $preprocess_log = "2> $tag.sga.preprocess.log" if ($self->debug);
+    $cmd = "$sga_executable preprocess $sample_threshold $phred64_flag --min-length=$minreadlen $dust_threshold $permute_ambiguous $readsfile -o $tag.fq $quiet_out $preprocess_log";
     print STDERR "$cmd\n" if ($self->debug);
     $DB::single=1;1;
     unless(system("$cmd") == 0) {    print("$cmd\n");    $self->throw("error running sga preprocess $!\n");  }
@@ -170,6 +170,10 @@ sub run {
           $numbases = $1; $perc_bases = $2;
         }
       }
+      # Get rid of log files
+      $cmd = "rm -f $dust_walks_log";
+      print STDERR "$cmd\n" if ($self->debug);
+      if(system("$cmd") != 0) {    print("$cmd\n");    $self->throw("error running pinball preprocess walks $!\n");  }
       $DB::single=1;1;
       my $do_simplified_assembly = 0;
       if ($numwalks > $walkslimit) {
