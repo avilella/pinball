@@ -79,6 +79,8 @@ sub run {
     my $bam        = $output_dir . join("\.",$outputfilebase,"bam");
 
     my $cmd;
+    my $quiet_out = '1>/dev/null'; $quiet_out = '' if ($self->debug);
+    my $quiet_err = '2>/dev/null'; $quiet_err = '' if ($self->debug);
 
     chdir($work_dir) if (defined ($self->{start_dir}));
 
@@ -115,21 +117,21 @@ sub run {
 
     ########################################
     # Align control preprocessed reads against previously indexed clusterwalksfa
-    $cmd = "$search_executable bwasw $z_option $clusterwalksfa $tag_fq > $sam";
+    $cmd = "$search_executable bwasw $z_option $clusterwalksfa $tag_fq > $sam $quiet_err";
     print STDERR "$cmd\n" if ($self->debug);
     unless(system("$cmd") == 0) {    print("$cmd\n");    $self->throw("error running pinball control $!\n");  }
 
     ########################################
     # Generate BAM file from alignments in SAM file (onlyhits)
-    $cmd = "$samtools_executable view $onlyhits_option -bt $clusterwalksfa.fai $sam > $tmp_bam";
+    $cmd = "$samtools_executable view $onlyhits_option -bt $clusterwalksfa.fai $sam > $tmp_bam $quiet_err";
     print STDERR "$cmd\n" if ($self->debug);
     unless(system("$cmd") == 0) {    print("$cmd\n");    $self->throw("error running pinball control $!\n");  }
 
-    $cmd = "$samtools_executable sort $tmp_bam $prefix_bam";
+    $cmd = "$samtools_executable sort $tmp_bam $prefix_bam $quiet_out $quiet_err";
     print STDERR "$cmd\n" if ($self->debug);
     unless(system("$cmd") == 0) {    print("$cmd\n");    $self->throw("error running pinball control $!\n");  }
 
-    $cmd = "$samtools_executable index $bam";
+    $cmd = "$samtools_executable index $bam $quiet_out $quiet_err";
     print STDERR "$cmd\n" if ($self->debug);
     unless(system("$cmd") == 0) {    print("$cmd\n");    $self->throw("error running pinball control $!\n");  }
 
