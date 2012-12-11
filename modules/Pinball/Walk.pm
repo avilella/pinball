@@ -229,6 +229,8 @@ sub write_output {  # nothing to write out, but some dataflow to perform:
     my $work_dir = $self->param('work_dir');
     my $clst     = $self->param('clst');
     my $clstext  = $self->param('clstext');
+    my $tag      = $self->param('tag');
+
     my $dataflow = 3;
     $dataflow = 2 if (!(defined $clst) && defined $clstext);
     # return 1 unless (-z $clst);
@@ -236,7 +238,7 @@ sub write_output {  # nothing to write out, but some dataflow to perform:
     my $walksfile = $self->param('walksfile');
     my $wdescfile = $self->param('wdescfile');
     my @output_ids;
-    push @output_ids, {'walksfile'=> $walksfile, 'wdescfile' => $wdescfile};
+    push @output_ids, {'walksfile'=> $walksfile, 'wdescfile' => $wdescfile, 'tag' => $tag};
     print "Created jobs ", scalar @output_ids, "\n" if ($self->debug);
     $self->param('output_ids', \@output_ids);
     my $output_ids = $self->param('output_ids');
