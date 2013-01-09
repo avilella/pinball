@@ -92,6 +92,11 @@ sub run {
     my $prefix_bam = $output_dir . join("\.",$refinfilebase);
     my $bam        = $output_dir . join("\.",$refinfilebase,"bam");
 
+    # Remove previous clusterwalksfa index files
+    $cmd = "rm $clusterwalksfa\.\*";
+    print STDERR "$cmd\n" if ($self->debug);
+    unless(system("$cmd") == 0) {    print("$cmd\n");    warn("error running pinball reportclusters $!\n");  }
+
     # Index clusterwalksfa with samtools faidx
     $cmd = "$samtools_executable faidx $clusterwalksfa";
     print STDERR "$cmd\n" if ($self->debug);
