@@ -170,7 +170,9 @@ every two minutes (--sleep 2 is default option) and process all the
 different analyses (preprocess, index, cluster, ...).
 
 You will see the reports from beekeeper.pl showing analysis going from
-READY to WORKING to DONE.
+READY to WORKING to DONE. You will see a message like this:
+
+'The Beekeeper has stopped because there is nothing left to do'
 
 # Use Ctrl+C to stop it at any point. You can run beekeeper -sync at
   any point to synchronize the status of the pipeline:
@@ -204,7 +206,11 @@ beekeeper.pl -url sqlite:///my_example_encode -sync
 # -> Reconstructed regions for each clustered set of reads. From your
 # work_dir, there will be a 'output' directory with a file like:
 
-# output/example_encode.1pc.1pm.clusters.fa
+# e.g.:
+
+cd ~/somewhere/with/disk/space/my_example_encode/output
+
+# the file should be: example_encode.1pc.1pm.clusters.fa
 
 # This file can be used, for example, for de novo motif discovery.
 
@@ -284,6 +290,12 @@ TFs, e.g.:
 -longest_n NUM    only output the longest NUM of walks per cluster (default: 1)
 
 -erate NUM        sga: maximum error rate allowed to consider two sequences aligned (default: 0)
+                  e.g. 1. for two reads of 101bp each with an offset of 1 bp and one mismatch at position 50
+                  (and 51), and error rate of erate=0.01 would consider the overlap significant.
+
+                  e.g. 2. for two reads of 101bp each with an offset of 1 bp and two mismatches at position 
+                  33 and 66 (and 34/67), and error rate of erate=0.005 would consider the overlap 
+                  significant.
 
 -rmdupfiltering   sga: use 'sga rmdup' instead of 'sga filter' in the indexing step. 
                   Rmdup is a more stringent filtering that gets rid of duplicate reads 
