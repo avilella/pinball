@@ -66,7 +66,9 @@ sub run {
 
     $cmd = "find $search_dir -name \"cluster-\*.walks\" -exec cat \{\} \\\; \> $clusterwalksfa";
     print STDERR "$cmd\n" if ($self->debug);
+    $self->db->dbc->disconnect_when_inactive(1);
     unless(system("$cmd") == 0) {    print("$cmd\n");    $self->throw("error running pinball reportclusters $!\n");  }
+    $self->db->dbc->disconnect_when_inactive(0);
 
     print STDERR "# $clusterwalksfa\n" if ($self->debug);
 
@@ -105,11 +107,14 @@ sub run {
     # Index clusterwalksfa with samtools index
     $cmd = "$search_executable index $clusterwalksfa";
     print STDERR "$cmd\n" if ($self->debug);
+    $self->db->dbc->disconnect_when_inactive(1);
     unless(system("$cmd") == 0) {    print("$cmd\n");    $self->throw("error running pinball reportclusters $!\n");  }
+    $self->db->dbc->disconnect_when_inactive(0);
 
     # Add header
     $cmd = "find $search_dir -name \"cluster-\*.walks.sam\" -exec cat \{\} \\\; | grep \'\@SQ\' > $sam";
     print STDERR "$cmd\n" if ($self->debug);
+    $self->db->dbc->disconnect_when_inactive(1);
     unless(system("$cmd") == 0) {    print("$cmd\n");    $self->throw("error running pinball reportclusters $!\n");  }
 
     # Append all sam entries after the header
@@ -132,6 +137,7 @@ sub run {
     $cmd = "rm -f $tmp_bam"; $cmd .= " $sam" unless ($self->debug);
     print STDERR "$cmd\n" if ($self->debug);
     unless(system("$cmd") == 0) {    print("$cmd\n");    $self->throw("error running pinball reportclusters $!\n");  }
+    $self->db->dbc->disconnect_when_inactive(0);
 
     print STDERR "# $bam\n" if ($self->debug);
     print STDERR "Try:\n$samtools_executable view $bam | wc -l\n" if ($self->debug);
