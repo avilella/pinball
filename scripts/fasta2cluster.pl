@@ -3,13 +3,14 @@ use strict;
 use Getopt::Long;
 use Bio::SeqIO;
 
-my ($inputfile,$debug,$cluster_id,$limit,$format);
+my ($inputfile,$debug,$cluster_id,$limit,$format,$oneid);
 $format = 'fasta';
 $limit = 999999999999;
 GetOptions(
 	   'i|input|inputfile:s' => \$inputfile,
            'd|debug:s' => \$debug,
            'c|cluster_id:s' => \$cluster_id,
+           'o|oneid:s' => \$oneid,
            'limit:s' => \$limit,
            'format:s' => \$format,
           );
@@ -27,6 +28,8 @@ while (my $seq = $io->next_seq) {
   $DB::single=1;1;
   if (defined($cluster_id)) {
     $this_cluster_id = $cluster_id;
+  } elsif (defined $oneid) {
+    $this_cluster_id = "$cluster\-$count";
   } else {
     $this_cluster_id = "$cluster\-$cid";
   }
