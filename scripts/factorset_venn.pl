@@ -29,7 +29,7 @@ while (<FILE>) {
             my $set = '';
             foreach my $value (split("\t",$_)) {
                 if ($value >= $threshold) {
-                    $set .= $hash->{$count}{colname};
+                    $set .= $hash->{$count}{colname} . " ";
                 }
                 $count++;
             }
@@ -44,7 +44,10 @@ foreach my $threshold (sort {$a <=> $b} keys %{$hash->{sets}}) {
     foreach my $set (keys %{$hash->{sets}{$threshold}}) {
         my $value = $hash->{sets}{$threshold}{$set};
         $set = 'null' if ($set eq '');
-        print join("\t",$threshold,$set,$value), "\n";
+        my @values = split(" ",$set);
+        $DB::single=1;1;
+        my $sortedset = join(' ',sort(@values));
+        print join("\t",$threshold,$sortedset,$value), "\n";
     }
 }
 $DB::single=1;1;
